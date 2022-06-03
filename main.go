@@ -23,10 +23,11 @@ func main() {
 			return
 		}
 		defer file.Close()
-		database, _ = sql.Open("sqlite3", "./database.db")
-		statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password TEXT)")
-		statement.Exec()
 	}
+
+	database, _ = sql.Open("sqlite3", "./database.db")
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password TEXT)")
+	statement.Exec()
 
 	fs := http.FileServer(http.Dir("templates"))
 	router := http.NewServeMux()
@@ -34,6 +35,9 @@ func main() {
 
 	router.HandleFunc("/", index)
 	router.HandleFunc("/register", register)
+	router.HandleFunc("/login", login)
+	router.HandleFunc("/api/register", registerApi)
+	router.HandleFunc("/api/login", loginApi)
 
 	router.Handle("/templates/", http.StripPrefix("/templates/", fs))
 	http.ListenAndServe(":8000", router)
@@ -53,9 +57,10 @@ func addUser(database *sql.DB, username string, email string, password string) {
 	password, _ = HashPassword(password)
 	statement, _ := database.Prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)")
 	statement.Exec(username, email, password)
+	fmt.Println("username: " + username + " email: " + email + " password: " + password)
 }
 
-func register(w http.ResponseWriter, r *http.Request) {
+func registerApi(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		fmt.Fprintf(w, "ParseForm() err: %v", err)
 		return
@@ -64,4 +69,39 @@ func register(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 	addUser(database, username, email, password)
+	fmt.Fprintf(w, "User registered successfully")
+}
+
+func loginApi(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		fmt.Fprintf(w, "ParseForm() err: %v", err)
+		return
+	}
+	submittedEmail := r.FormValue("email")
+	submittedPassword := r.FormValue("password")
+	fmt.Println(submittedEmail)
+	fmt.Println(submittedPassword)
+	rows, _ := database.Query("SELECT username, email, password FROM users WHERE email = ?", submittedEmail)
+	var username string
+	var email string
+	var password string
+	for rows.Next() {
+		rows.Scan(&username, &email, &password)
+		fmt.Println(username + " : " + email + " " + password)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(password), []byte(submittedPassword)); err != nil {
+		fmt.Fprintf(w, "Invalid Password")
+	} else {
+		fmt.Fprintf(w, "Success")
+	}
+}
+
+func register(w http.ResponseWriter, r *http.Request) {
+	t, _ := template.ParseGlob("templates/*.html")
+	t.ExecuteTemplate(w, "register.html", "")
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	t, _ := template.ParseGlob("templates/*.html")
+	t.ExecuteTemplate(w, "login.html", "")
 }
