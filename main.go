@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
 	"html/template"
 	"net/http"
 	"os"
@@ -30,7 +31,10 @@ func main() {
 	fs := http.FileServer(http.Dir("templates"))
 	router := http.NewServeMux()
 	fmt.Println("Starting server on port 8000")
+
 	router.HandleFunc("/", index)
+	router.HandleFunc("/register", register)
+
 	router.Handle("/templates/", http.StripPrefix("/templates/", fs))
 	http.ListenAndServe(":8000", router)
 }
@@ -38,4 +42,26 @@ func main() {
 func index(w http.ResponseWriter, r *http.Request) {
 	t, _ := template.ParseGlob("templates/*.html")
 	t.ExecuteTemplate(w, "index.html", "")
+}
+
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
+func addUser(database *sql.DB, username string, email string, password string) {
+	password, _ = HashPassword(password)
+	statement, _ := database.Prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)")
+	statement.Exec(username, email, password)
+}
+
+func register(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		fmt.Fprintf(w, "ParseForm() err: %v", err)
+		return
+	}
+	username := r.FormValue("username")
+	email := r.FormValue("email")
+	password := r.FormValue("password")
+	addUser(database, username, email, password)
 }
