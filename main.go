@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 	"html/template"
 	"net/http"
 	"os"
+	"time"
 )
 
 var database *sql.DB
@@ -92,6 +94,10 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 	if err := bcrypt.CompareHashAndPassword([]byte(password), []byte(submittedPassword)); err != nil {
 		fmt.Fprintf(w, "Invalid Password")
 	} else {
+		expiration := time.Now().Add(24 * time.Hour)
+		value := uuid.NewV4().String()
+		cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration}
+		http.SetCookie(w, &cookie)
 		fmt.Fprintf(w, "Success")
 	}
 }
