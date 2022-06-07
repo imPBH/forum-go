@@ -46,6 +46,11 @@ func main() {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
 	t, _ := template.ParseGlob("templates/*.html")
 	t.ExecuteTemplate(w, "index.html", "")
 }
@@ -55,10 +60,10 @@ func HashPassword(password string) (string, error) {
 	return string(bytes), err
 }
 
-func addUser(database *sql.DB, username string, email string, password string) {
+func addUser(database *sql.DB, username string, email string, password string, cookie string, expires string) {
 	password, _ = HashPassword(password)
-	statement, _ := database.Prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)")
-	statement.Exec(username, email, password)
+	statement, _ := database.Prepare("INSERT INTO users (username, email, password, cookie, expires) VALUES (?, ?, ?, ?, ?)")
+	statement.Exec(username, email, password, cookie, expires)
 	fmt.Println("username: " + username + " email: " + email + " password: " + password)
 }
 
@@ -70,8 +75,12 @@ func registerApi(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	email := r.FormValue("email")
 	password := r.FormValue("password")
-	addUser(database, username, email, password)
-	fmt.Fprintf(w, "User registered successfully")
+	value := uuid.NewV4().String()
+	expiration := time.Now().Add(31 * 24 * time.Hour)
+	addUser(database, username, email, password, value, expiration.String())
+	cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
+	http.SetCookie(w, &cookie)
+	http.Redirect(w, r, "/home", http.StatusFound)
 }
 
 func loginApi(w http.ResponseWriter, r *http.Request) {
@@ -94,15 +103,15 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 	if err := bcrypt.CompareHashAndPassword([]byte(password), []byte(submittedPassword)); err != nil {
 		fmt.Fprintf(w, "Invalid Password")
 	} else {
-		expiration := time.Now().Add(365 * 24 * time.Hour)
+		expiration := time.Now().Add(31 * 24 * time.Hour)
 		value := uuid.NewV4().String()
 		cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
 		http.SetCookie(w, &cookie)
-		fmt.Fprintf(w, "Success")
 
 		// update cookie in DB
 		statement, _ := database.Prepare("UPDATE users SET cookie = ?, expires = ? WHERE email = ?")
 		statement.Exec(value, expiration.String(), email)
+		http.Redirect(w, r, "/home", http.StatusFound)
 	}
 }
 
