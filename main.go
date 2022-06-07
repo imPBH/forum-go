@@ -28,7 +28,7 @@ func main() {
 	}
 
 	database, _ = sql.Open("sqlite3", "./database.db")
-	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password TEXT)")
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password TEXT, cookie TEXT, expires TEXT)")
 	statement.Exec()
 
 	fs := http.FileServer(http.Dir("templates"))
@@ -94,11 +94,15 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 	if err := bcrypt.CompareHashAndPassword([]byte(password), []byte(submittedPassword)); err != nil {
 		fmt.Fprintf(w, "Invalid Password")
 	} else {
-		expiration := time.Now().Add(24 * time.Hour)
+		expiration := time.Now().Add(365 * 24 * time.Hour)
 		value := uuid.NewV4().String()
-		cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration}
+		cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
 		http.SetCookie(w, &cookie)
 		fmt.Fprintf(w, "Success")
+
+		// update cookie in DB
+		statement, _ := database.Prepare("UPDATE users SET cookie = ?, expires = ? WHERE email = ?")
+		statement.Exec(value, expiration.String(), email)
 	}
 }
 
