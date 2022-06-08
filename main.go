@@ -51,8 +51,50 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, _ := template.ParseGlob("templates/*.html")
-	t.ExecuteTemplate(w, "index.html", "")
+	cookie, err := r.Cookie("SESSION")
+	if err != nil {
+		fmt.Println(err)
+		t, _ := template.ParseGlob("templates/*.html")
+		t.ExecuteTemplate(w, "index.html", "")
+		return
+	}
+
+	var cookieExists bool
+	err = database.QueryRow("SELECT IIF(COUNT(*), 'true', 'false') FROM users WHERE cookie = ?", cookie.Value).Scan(&cookieExists)
+	if err != nil {
+		fmt.Println(err)
+		t, _ := template.ParseGlob("templates/*.html")
+		t.ExecuteTemplate(w, "index.html", "")
+		return
+	}
+
+	fmt.Println(cookie.Value)
+	if cookieExists {
+		rows, _ := database.Query("SELECT expires FROM users WHERE cookie = ?", cookie.Value)
+		var expires string
+		for rows.Next() {
+			rows.Scan(&expires)
+		}
+
+		if isExpired(expires) {
+			fmt.Println("Expired")
+			t, _ := template.ParseGlob("templates/*.html")
+			t.ExecuteTemplate(w, "index.html", "")
+			return
+		}
+
+		fmt.Println("Not expired")
+		rows, _ = database.Query("SELECT username FROM users WHERE cookie = ?", cookie.Value)
+		var user string
+		for rows.Next() {
+			rows.Scan(&user)
+			fmt.Println(user)
+			fmt.Fprintf(w, "Welcome %s", user)
+		}
+	} else {
+		t, _ := template.ParseGlob("templates/*.html")
+		t.ExecuteTemplate(w, "index.html", "")
+	}
 }
 
 func HashPassword(password string) (string, error) {
@@ -77,7 +119,7 @@ func registerApi(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	value := uuid.NewV4().String()
 	expiration := time.Now().Add(31 * 24 * time.Hour)
-	addUser(database, username, email, password, value, expiration.String())
+	addUser(database, username, email, password, value, expiration.Format("2006-01-02 15:04:05"))
 	cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
 	http.SetCookie(w, &cookie)
 	http.Redirect(w, r, "/home", http.StatusFound)
@@ -110,7 +152,7 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 
 		// update cookie in DB
 		statement, _ := database.Prepare("UPDATE users SET cookie = ?, expires = ? WHERE email = ?")
-		statement.Exec(value, expiration.String(), email)
+		statement.Exec(value, expiration.Format("2006-01-02 15:04:05"), email)
 		http.Redirect(w, r, "/home", http.StatusFound)
 	}
 }
@@ -123,4 +165,9 @@ func register(w http.ResponseWriter, r *http.Request) {
 func login(w http.ResponseWriter, r *http.Request) {
 	t, _ := template.ParseGlob("templates/*.html")
 	t.ExecuteTemplate(w, "login.html", "")
+}
+
+func isExpired(expires string) bool {
+	expiresTime, _ := time.Parse("2006-01-02 15:04:05", expires)
+	return time.Now().After(expiresTime)
 }
