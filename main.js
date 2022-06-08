@@ -25,8 +25,13 @@ function showReply(){
     replyArea.classList.remove("hide");
 }
 
-//new user  registration
-function showRegister(){
-    var registerArea = document.getElementById("register-area");
-    registerArea.classList.remove("hide");
+
+
+function hideContainer(){
+    var container = document.getElementById("container");
+    container.classList.add("hide");
+}
+function showContainer(){
+    var container = document.getElementById("container");
+    container.classList.remove("hide");
 }

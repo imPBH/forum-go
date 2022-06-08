@@ -20,8 +20,11 @@
 <body>
     <header>
         <!--NavBar Section-->
-        //new <code></code>
+
         <div class="navbar">
+            <form action="signinForm.html" method="post">
+                <button type="submit" class="signin">Sign In</button>
+            </form><!--Sign In Button-->
             <nav class="navigation hide" id="navigation">
                 <span class="close-icon" id="close-icon" onclick="showIconBar()"><i class="fa fa-close"></i></span>
                 <ul class="nav-list">
@@ -32,6 +35,7 @@
             </nav>
             <a class="bar-icon" id="iconBar" onclick="hideIconBar()"><i class="fa fa-bars"></i></a>
             <div class="brand">HAPPY FEET
+
         </div>
         <!--SearchBox Section-->
         <div class="search-box">
@@ -40,6 +44,7 @@
                     <option value="Everything">Everything</option>
                     <option value="Titles">Titles</option>
                     <option value="Descriptions">Descriptions</option>
+
                 </select>
                 <input type="text" name="q" placeholder="search ...">
                 <button><i class="fa fa-search"></i></button>
@@ -47,7 +52,10 @@
         </div>
         </div>
     </header>
-    <div class="container">
+    <div id=" main-content">
+    <div id="container" class="container">
+        <button id="hide-container" class="hidecontainer" onclick="hideContainer()">Click me</button>
+
         <div class="subforum" action="\post.html">
 
             <div class="subforum-title">
@@ -67,9 +75,11 @@
                 </div>
             </div>
         </div>
+    </div>
         <!--More-->
         
         <div class="subforum">
+            <button onclick="showContainer()">Click me</button>
             <div class="subforum-title">
                 <h1>General Information</h1>
             </div>
