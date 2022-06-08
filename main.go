@@ -31,6 +31,8 @@ func main() {
 	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password TEXT, cookie TEXT, expires TEXT)")
 	statement.Exec()
 
+	createPostTable(database)
+
 	fs := http.FileServer(http.Dir("templates"))
 	router := http.NewServeMux()
 	fmt.Println("Starting server on port 8000")
@@ -40,6 +42,7 @@ func main() {
 	router.HandleFunc("/login", login)
 	router.HandleFunc("/api/register", registerApi)
 	router.HandleFunc("/api/login", loginApi)
+	router.HandleFunc("/api/createpost", createPostApi)
 
 	router.Handle("/templates/", http.StripPrefix("/templates/", fs))
 	http.ListenAndServe(":8000", router)
@@ -88,8 +91,8 @@ func index(w http.ResponseWriter, r *http.Request) {
 		var user string
 		for rows.Next() {
 			rows.Scan(&user)
-			fmt.Println(user)
-			fmt.Fprintf(w, "Welcome %s", user)
+			t, _ := template.ParseGlob("templates/*.html")
+			t.ExecuteTemplate(w, "createpost.html", user)
 		}
 	} else {
 		t, _ := template.ParseGlob("templates/*.html")
@@ -205,4 +208,44 @@ func usernameNotTaken(username string) bool {
 		return true
 	}
 	return false
+}
+
+// create post table
+func createPostTable(database *sql.DB) {
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, title TEXT, content TEXT, created_at TEXT, upvotes INTEGER, downvotes INTEGER)")
+	statement.Exec()
+}
+
+// get user by cookie
+func getUser(cookie string) string {
+	rows, _ := database.Query("SELECT username FROM users WHERE cookie = ?", cookie)
+	var username string
+	for rows.Next() {
+		rows.Scan(&username)
+	}
+	return username
+}
+
+// create a post
+func createPostApi(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+
+		cookie, _ := r.Cookie("SESSION")
+		username := getUser(cookie.Value)
+
+		fmt.Println("cookie: " + cookie.Value)
+		fmt.Println("username" + username)
+
+		title := r.FormValue("title")
+		content := r.FormValue("content")
+		created_at := time.Now().Format("2006-01-02 15:04:05")
+		statement, _ := database.Prepare("INSERT INTO posts (username, title, content, created_at, upvotes, downvotes) VALUES (?, ?, ?, ?, ?, ?)")
+		statement.Exec(username, title, content, created_at, 0, 0)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Post created"))
+	}
 }
