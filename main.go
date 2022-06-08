@@ -119,10 +119,18 @@ func registerApi(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	value := uuid.NewV4().String()
 	expiration := time.Now().Add(31 * 24 * time.Hour)
-	addUser(database, username, email, password, value, expiration.Format("2006-01-02 15:04:05"))
-	cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
-	http.SetCookie(w, &cookie)
-	http.Redirect(w, r, "/home", http.StatusFound)
+	if emailNotTaken(email) && usernameNotTaken(username) {
+		addUser(database, username, email, password, value, expiration.Format("2006-01-02 15:04:05"))
+		cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
+		http.SetCookie(w, &cookie)
+		http.Redirect(w, r, "/home", http.StatusFound)
+	} else {
+		if !emailNotTaken(email) {
+			http.Redirect(w, r, "/register?err=email_taken", http.StatusFound)
+		} else if !usernameNotTaken(username) {
+			http.Redirect(w, r, "/register?err=username_taken", http.StatusFound)
+		}
+	}
 }
 
 func loginApi(w http.ResponseWriter, r *http.Request) {
@@ -142,8 +150,11 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 		rows.Scan(&username, &email, &password)
 		fmt.Println(username + " : " + email + " " + password)
 	}
+	if username == "" && email == "" && password == "" {
+		http.Redirect(w, r, "/login?err=invalid_email", http.StatusFound)
+	}
 	if err := bcrypt.CompareHashAndPassword([]byte(password), []byte(submittedPassword)); err != nil {
-		fmt.Fprintf(w, "Invalid Password")
+		http.Redirect(w, r, "/login?err=invalid_password", http.StatusFound)
 	} else {
 		expiration := time.Now().Add(31 * 24 * time.Hour)
 		value := uuid.NewV4().String()
@@ -170,4 +181,28 @@ func login(w http.ResponseWriter, r *http.Request) {
 func isExpired(expires string) bool {
 	expiresTime, _ := time.Parse("2006-01-02 15:04:05", expires)
 	return time.Now().After(expiresTime)
+}
+
+func emailNotTaken(email string) bool {
+	rows, _ := database.Query("SELECT email FROM users WHERE email = ?", email)
+	var emailExists string
+	for rows.Next() {
+		rows.Scan(&emailExists)
+	}
+	if emailExists == "" {
+		return true
+	}
+	return false
+}
+
+func usernameNotTaken(username string) bool {
+	rows, _ := database.Query("SELECT username FROM users WHERE username = ?", username)
+	var usernameExists string
+	for rows.Next() {
+		rows.Scan(&usernameExists)
+	}
+	if usernameExists == "" {
+		return true
+	}
+	return false
 }
