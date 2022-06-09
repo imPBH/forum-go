@@ -21,6 +21,15 @@ type Post struct {
 	CreatedAt string
 	UpVotes   int
 	DownVotes int
+	Comments  []Comment
+}
+
+type Comment struct {
+	Id        int
+	PostId    int
+	Username  string
+	Content   string
+	CreatedAt string
 }
 
 var database *sql.DB
@@ -302,7 +311,20 @@ func displayPost(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		id := r.URL.Query().Get("id")
 		post := getPost(id)
+		post.Comments = getComments(id)
 		t, _ := template.ParseGlob("templates/*.html")
 		t.ExecuteTemplate(w, "postTemplate.html", post)
 	}
+}
+
+// get comments by post id
+func getComments(id string) []Comment {
+	rows, _ := database.Query("SELECT id, username, content FROM comments WHERE post_id = ?", id)
+	var comments []Comment
+	for rows.Next() {
+		var comment Comment
+		rows.Scan(&comment.Id, &comment.Username, &comment.Content)
+		comments = append(comments, comment)
+	}
+	return comments
 }
