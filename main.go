@@ -9,8 +9,19 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
+
+type Post struct {
+	Id        int
+	Username  string
+	Title     string
+	Content   string
+	CreatedAt string
+	UpVotes   int
+	DownVotes int
+}
 
 var database *sql.DB
 
@@ -32,6 +43,7 @@ func main() {
 	statement.Exec()
 
 	createPostTable(database)
+	createCommentTable(database)
 
 	fs := http.FileServer(http.Dir("templates"))
 	router := http.NewServeMux()
@@ -43,6 +55,8 @@ func main() {
 	router.HandleFunc("/api/register", registerApi)
 	router.HandleFunc("/api/login", loginApi)
 	router.HandleFunc("/api/createpost", createPostApi)
+	router.HandleFunc("/api/comments", commentsApi)
+	router.HandleFunc("/post", displayPost)
 
 	router.Handle("/templates/", http.StripPrefix("/templates/", fs))
 	http.ListenAndServe(":8000", router)
@@ -238,14 +252,57 @@ func createPostApi(w http.ResponseWriter, r *http.Request) {
 		username := getUser(cookie.Value)
 
 		fmt.Println("cookie: " + cookie.Value)
-		fmt.Println("username" + username)
+		fmt.Println("username: " + username)
 
 		title := r.FormValue("title")
 		content := r.FormValue("content")
-		created_at := time.Now().Format("2006-01-02 15:04:05")
+		createdAt := time.Now().Format("2006-01-02 15:04:05")
 		statement, _ := database.Prepare("INSERT INTO posts (username, title, content, created_at, upvotes, downvotes) VALUES (?, ?, ?, ?, ?, ?)")
-		statement.Exec(username, title, content, created_at, 0, 0)
+		statement.Exec(username, title, content, createdAt, 0, 0)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Post created"))
+	}
+}
+
+// create a comment table
+func createCommentTable(database *sql.DB) {
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, post_id INTEGER, content TEXT, created_at TEXT)")
+	statement.Exec()
+}
+
+func commentsApi(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		cookie, _ := r.Cookie("SESSION")
+		username := getUser(cookie.Value)
+		postId := r.FormValue("postId")
+		content := r.FormValue("content")
+		createdAt := time.Now().Format("2006-01-02 15:04:05")
+		statement, _ := database.Prepare("INSERT INTO comments (username, post_id, content, created_at) VALUES (?, ?, ?, ?)")
+		statement.Exec(username, postId, content, createdAt)
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// get post by id return a Post struct with the post data
+func getPost(id string) Post {
+	rows, _ := database.Query("SELECT username, title, content FROM posts WHERE id = ?", id)
+	var post Post
+	post.Id, _ = strconv.Atoi(id)
+	for rows.Next() {
+		rows.Scan(&post.Username, &post.Title, &post.Content)
+	}
+	return post
+}
+
+func displayPost(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		id := r.URL.Query().Get("id")
+		post := getPost(id)
+		t, _ := template.ParseGlob("templates/*.html")
+		t.ExecuteTemplate(w, "postTemplate.html", post)
 	}
 }
