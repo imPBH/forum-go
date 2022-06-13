@@ -53,6 +53,7 @@ func main() {
 
 	createPostTable(database)
 	createCommentTable(database)
+	createVoteTable(database)
 
 	fs := http.FileServer(http.Dir("templates"))
 	router := http.NewServeMux()
@@ -66,6 +67,8 @@ func main() {
 	router.HandleFunc("/api/createpost", createPostApi)
 	router.HandleFunc("/api/comments", commentsApi)
 	router.HandleFunc("/post", displayPost)
+	router.HandleFunc("/posts", getPostsApi)
+	router.HandleFunc("/api/vote", voteApi)
 
 	router.Handle("/templates/", http.StripPrefix("/templates/", fs))
 	http.ListenAndServe(":8000", router)
@@ -327,4 +330,144 @@ func getComments(id string) []Comment {
 		comments = append(comments, comment)
 	}
 	return comments
+}
+
+// get all posts
+func getPosts() []Post {
+	rows, _ := database.Query("SELECT id, username, title, content, created_at FROM posts")
+	var posts []Post
+	for rows.Next() {
+		var post Post
+		rows.Scan(&post.Id, &post.Username, &post.Title, &post.Content, &post.CreatedAt)
+		posts = append(posts, post)
+	}
+	return posts
+}
+
+// display all posts on a template
+func getPostsApi(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		posts := getPosts()
+		t, _ := template.ParseGlob("templates/*.html")
+		t.ExecuteTemplate(w, "posts.html", posts)
+	}
+}
+
+func createVoteTable(database *sql.DB) {
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS votes (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, post_id INTEGER, vote INTEGER)")
+	statement.Exec()
+}
+
+func voteApi(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		cookie, _ := r.Cookie("SESSION")
+		username := getUser(cookie.Value)
+		postId := r.FormValue("postId")
+		postIdInt, _ := strconv.Atoi(postId)
+		vote := r.FormValue("vote")
+		voteInt, _ := strconv.Atoi(vote)
+
+		if voteInt == 1 {
+			if HasUpvoted(username, postIdInt) {
+				// remove vote
+				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
+				statement.Exec(username, postIdInt, 1)
+				statement, _ = database.Prepare("UPDATE posts SET upvotes = upvotes - 1 WHERE id = ?")
+				statement.Exec(postIdInt)
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Vote removed"))
+				return
+			}
+			if HasDownvoted(username, postIdInt) {
+				// remove downvote
+				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
+				statement.Exec(username, postIdInt, -1)
+				statement, _ = database.Prepare("UPDATE posts SET downvotes = downvotes - 1 WHERE id = ?")
+				statement.Exec(postIdInt)
+
+				// add upvote
+				statement, _ = database.Prepare("UPDATE posts SET upvotes = upvotes + 1 WHERE id = ?")
+				statement.Exec(postIdInt)
+				statement, _ = database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
+				statement.Exec(username, postIdInt, 1)
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Upvote added"))
+				return
+			}
+			// add upvote
+			statement1, _ := database.Prepare("UPDATE posts SET upvotes = upvotes + 1 WHERE id = ?")
+			statement1.Exec(postIdInt)
+			statement2, _ := database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
+			statement2.Exec(username, postIdInt, 1)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Upvote added"))
+			return
+		} else if voteInt == -1 {
+			if HasDownvoted(username, postIdInt) {
+				// remove vote
+				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
+				statement.Exec(username, postIdInt, voteInt)
+				statement, _ = database.Prepare("UPDATE posts SET downvotes = downvotes - 1 WHERE id = ?")
+				statement.Exec(postIdInt)
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Vote removed"))
+				return
+			}
+			if HasUpvoted(username, postIdInt) {
+				// remove upvote
+				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
+				statement.Exec(username, postIdInt, 1)
+				statement, _ = database.Prepare("UPDATE posts SET upvotes = upvotes - 1 WHERE id = ?")
+				statement.Exec(postIdInt)
+
+				// add downvote
+				statement, _ = database.Prepare("UPDATE posts SET downvotes = downvotes + 1 WHERE id = ?")
+				statement.Exec(postIdInt)
+				statement, _ = database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
+				statement.Exec(username, postIdInt, -1)
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Downvote added"))
+				return
+			}
+			// add downvote
+			statement1, _ := database.Prepare("UPDATE posts SET downvotes = downvotes + 1 WHERE id = ?")
+			statement1.Exec(postIdInt)
+			statement2, _ := database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
+			statement2.Exec(username, postIdInt, -1)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Downvote added"))
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid vote"))
+		return
+	}
+}
+
+func HasUpvoted(username string, postId int) bool {
+	rows, _ := database.Query("SELECT vote FROM votes WHERE username = ? AND post_id = ? AND vote = 1", username, postId)
+	vote := 0
+	for rows.Next() {
+		rows.Scan(&vote)
+	}
+	if vote != 0 {
+		return true
+	}
+	return false
+}
+
+func HasDownvoted(username string, postId int) bool {
+	rows, _ := database.Query("SELECT vote FROM votes WHERE username = ? AND post_id = ? AND vote = -1", username, postId)
+	vote := 0
+	for rows.Next() {
+		rows.Scan(&vote)
+	}
+	if vote != 0 {
+		return true
+	}
+	return false
 }
