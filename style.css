@@ -245,10 +245,8 @@ header{
     cursor: pointer;
 }
 
-@font-face {
-    font-family:aquire;
-    src:url(aquire.otf);
-}
+
+
 
 .brand{
     font-size:60px;
@@ -570,8 +568,10 @@ footer{
 
 }
 
-
-
+img {
+    width : 50px;
+    height: auto; /*to preserve the aspect ratio of the image*/
+}
 
 
 
@@ -602,7 +602,7 @@ footer{
 
 body{
     min-height: 100vh;
-
+    display: flex;
     justify-content: center;
     align-items: center;
     font-family: sans-serif;
@@ -619,7 +619,7 @@ body{
     background: rgba( 255, 255, 255, 0.25 );
     box-shadow: 0 8px 32px 0 rgba( 31, 38, 135, 0.37 );
     backdrop-filter: blur( 4px );
-    -webkit-backdrop-filter: blur( 4px );
+    -webkit-backdrop-filter: blur( 10px );
     border-radius: 10px;
 }
 .item-container{
@@ -680,7 +680,7 @@ input[type="text"]:focus-visible, input[type="password"]:focus-visible{
     border: none;
     padding: 5px;
     background: transparent;
-    margin-left: 20px;
+    outline: none;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -688,13 +688,18 @@ input[type="text"]:focus-visible, input[type="password"]:focus-visible{
 }
 
 button[type="submit"]{
-    width: 100%;
-    padding: var(--primary-padding);
+    width: 20%;
+
     border-radius: var(--pilled-shape-radius);
     border: none;
     background: var(--primary-gradient);
     color: var(--white-shade);
-    margin: 10px 0 10px 0;
+    outline: none;
+    margin-left: 40%;
+cursor: pointer;
+    padding: 5px;
+    box-shadow: 2px 2px 5px #353636;
+    margin-bottom: 10px;
 }
 .chekbox-label{
     font-size: 14px;
@@ -710,10 +715,16 @@ a{
 img.imageprofile{
     width:50px; /* you can use % */
     height: auto;
+    border-radius: 50%;
 }
 
+.signin {
 
+    color: var(--secondary-color);
+    position: relative;
+    justify-content: flex-end;
 
+}
 
 
 
