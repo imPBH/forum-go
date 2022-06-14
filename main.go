@@ -551,6 +551,19 @@ func getPostsByCategory(category string) []Post {
 	return posts
 }
 
+func getPostsByUser(username string) []Post {
+	rows, _ := database.Query("SELECT id, username, title, categories, content, created_at, upvotes, downvotes  FROM posts WHERE username = ?", username)
+	var posts []Post
+	for rows.Next() {
+		var post Post
+		var catString string
+		rows.Scan(&post.Id, &post.Username, &post.Title, &catString, &post.Content, &post.CreatedAt, &post.UpVotes, &post.DownVotes)
+		post.Categories = strings.Split(catString, ",")
+		posts = append(posts, post)
+	}
+	return posts
+}
+
 func getPostsByApi(w http.ResponseWriter, r *http.Request) {
 	method := r.URL.Query().Get("by")
 	if method == "category" {
@@ -558,5 +571,13 @@ func getPostsByApi(w http.ResponseWriter, r *http.Request) {
 		posts := getPostsByCategory(category)
 		t, _ := template.ParseGlob("templates/*.html")
 		t.ExecuteTemplate(w, "posts.html", posts)
+		return
+	}
+	if method == "user" {
+		username := r.URL.Query().Get("username")
+		posts := getPostsByUser(username)
+		t, _ := template.ParseGlob("templates/*.html")
+		t.ExecuteTemplate(w, "posts.html", posts)
+		return
 	}
 }
