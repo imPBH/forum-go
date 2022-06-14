@@ -75,6 +75,7 @@ func main() {
 	router.HandleFunc("/posts", getPostsApi)
 	router.HandleFunc("/api/vote", voteApi)
 	router.HandleFunc("/filter", getPostsByApi)
+	router.HandleFunc("/api/logout", logout)
 
 	router.Handle("/templates/", http.StripPrefix("/templates/", fs))
 	http.ListenAndServe(":8000", router)
@@ -642,4 +643,14 @@ func isLoggedIn(r *http.Request) bool {
 		return true
 	}
 	return false
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	cookie, _ := r.Cookie("SESSION")
+	if cookie != nil {
+		username := getUser(cookie.Value)
+		statement, _ := database.Prepare("UPDATE users SET cookie = '', expires = '' WHERE username = ?")
+		statement.Exec(username)
+	}
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
