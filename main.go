@@ -87,50 +87,15 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie, err := r.Cookie("SESSION")
-	if err != nil {
-		fmt.Println(err)
+	if isLoggedIn(r) {
+		cookie, _ := r.Cookie("SESSION")
 		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "index.html", "")
+		t.ExecuteTemplate(w, "createpost.html", getUser(cookie.Value))
 		return
 	}
-
-	var cookieExists bool
-	err = database.QueryRow("SELECT IIF(COUNT(*), 'true', 'false') FROM users WHERE cookie = ?", cookie.Value).Scan(&cookieExists)
-	if err != nil {
-		fmt.Println(err)
-		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "index.html", "")
-		return
-	}
-
-	fmt.Println(cookie.Value)
-	if cookieExists {
-		rows, _ := database.Query("SELECT expires FROM users WHERE cookie = ?", cookie.Value)
-		var expires string
-		for rows.Next() {
-			rows.Scan(&expires)
-		}
-
-		if isExpired(expires) {
-			fmt.Println("Expired")
-			t, _ := template.ParseGlob("templates/*.html")
-			t.ExecuteTemplate(w, "index.html", "")
-			return
-		}
-
-		fmt.Println("Not expired")
-		rows, _ = database.Query("SELECT username FROM users WHERE cookie = ?", cookie.Value)
-		var user string
-		for rows.Next() {
-			rows.Scan(&user)
-			t, _ := template.ParseGlob("templates/*.html")
-			t.ExecuteTemplate(w, "createpost.html", user)
-		}
-	} else {
-		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "index.html", "")
-	}
+	t, _ := template.ParseGlob("templates/*.html")
+	t.ExecuteTemplate(w, "index.html", "")
+	return
 }
 
 func HashPassword(password string) (string, error) {
@@ -155,18 +120,21 @@ func registerApi(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	value := uuid.NewV4().String()
 	expiration := time.Now().Add(31 * 24 * time.Hour)
-	if emailNotTaken(email) && usernameNotTaken(username) {
-		addUser(database, username, email, password, value, expiration.Format("2006-01-02 15:04:05"))
-		cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
-		http.SetCookie(w, &cookie)
-		http.Redirect(w, r, "/", http.StatusFound)
-	} else {
-		if !emailNotTaken(email) {
-			http.Redirect(w, r, "/register?err=email_taken", http.StatusFound)
-		} else if !usernameNotTaken(username) {
-			http.Redirect(w, r, "/register?err=username_taken", http.StatusFound)
-		}
+	if !emailNotTaken(email) {
+		http.Redirect(w, r, "/register?err=email_taken", http.StatusFound)
+		return
 	}
+	if !usernameNotTaken(username) {
+		http.Redirect(w, r, "/register?err=username_taken", http.StatusFound)
+		return
+	}
+
+	addUser(database, username, email, password, value, expiration.Format("2006-01-02 15:04:05"))
+	cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
+	http.SetCookie(w, &cookie)
+	http.Redirect(w, r, "/", http.StatusFound)
+	return
+
 }
 
 func loginApi(w http.ResponseWriter, r *http.Request) {
@@ -188,20 +156,22 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 	}
 	if username == "" && email == "" && password == "" {
 		http.Redirect(w, r, "/login?err=invalid_email", http.StatusFound)
+		return
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(password), []byte(submittedPassword)); err != nil {
 		http.Redirect(w, r, "/login?err=invalid_password", http.StatusFound)
-	} else {
-		expiration := time.Now().Add(31 * 24 * time.Hour)
-		value := uuid.NewV4().String()
-		cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
-		http.SetCookie(w, &cookie)
-
-		// update cookie in DB
-		statement, _ := database.Prepare("UPDATE users SET cookie = ?, expires = ? WHERE email = ?")
-		statement.Exec(value, expiration.Format("2006-01-02 15:04:05"), email)
-		http.Redirect(w, r, "/", http.StatusFound)
+		return
 	}
+	expiration := time.Now().Add(31 * 24 * time.Hour)
+	value := uuid.NewV4().String()
+	cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
+	http.SetCookie(w, &cookie)
+
+	// update cookie in DB
+	statement, _ := database.Prepare("UPDATE users SET cookie = ?, expires = ? WHERE email = ?")
+	statement.Exec(value, expiration.Format("2006-01-02 15:04:05"), email)
+	http.Redirect(w, r, "/", http.StatusFound)
+	return
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
@@ -261,38 +231,46 @@ func getUser(cookie string) string {
 
 // create a post
 func createPostApi(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		if err := r.ParseForm(); err != nil {
-			fmt.Fprintf(w, "ParseForm() err: %v", err)
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		fmt.Fprintf(w, "ParseForm() err: %v", err)
+		return
+	}
+
+	if !isLoggedIn(r) {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	cookie, _ := r.Cookie("SESSION")
+	username := getUser(cookie.Value)
+
+	fmt.Println("cookie: " + cookie.Value)
+	fmt.Println("username: " + username)
+
+	title := r.FormValue("title")
+	content := r.FormValue("content")
+	categories := r.Form["categories[]"]
+	validCategories := getCategories(database)
+	for _, category := range categories {
+		// if string not in array, return error
+		if !inArray(category, validCategories) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid category : " + category))
 			return
 		}
-
-		cookie, _ := r.Cookie("SESSION")
-		username := getUser(cookie.Value)
-
-		fmt.Println("cookie: " + cookie.Value)
-		fmt.Println("username: " + username)
-
-		title := r.FormValue("title")
-		content := r.FormValue("content")
-		categories := r.Form["categories[]"]
-		validCategories := getCategories(database)
-		for _, category := range categories {
-			// if string not in array, return error
-			if !inArray(category, validCategories) {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("Invalid category : " + category))
-				return
-			}
-		}
-		stringCategories := strings.Join(categories, ",")
-		fmt.Println(stringCategories)
-		createdAt := time.Now().Format("2006-01-02 15:04:05")
-		statement, _ := database.Prepare("INSERT INTO posts (username, title, categories, content, created_at, upvotes, downvotes) VALUES (?, ?, ?, ?, ?, ?, ?)")
-		statement.Exec(username, title, stringCategories, content, createdAt, 0, 0)
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Post created"))
 	}
+	stringCategories := strings.Join(categories, ",")
+	fmt.Println(stringCategories)
+	createdAt := time.Now().Format("2006-01-02 15:04:05")
+	statement, _ := database.Prepare("INSERT INTO posts (username, title, categories, content, created_at, upvotes, downvotes) VALUES (?, ?, ?, ?, ?, ?, ?)")
+	statement.Exec(username, title, stringCategories, content, createdAt, 0, 0)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Post created"))
 }
 
 // create a comment table
@@ -302,20 +280,23 @@ func createCommentTable(database *sql.DB) {
 }
 
 func commentsApi(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		if err := r.ParseForm(); err != nil {
-			fmt.Fprintf(w, "ParseForm() err: %v", err)
-			return
-		}
-		cookie, _ := r.Cookie("SESSION")
-		username := getUser(cookie.Value)
-		postId := r.FormValue("postId")
-		content := r.FormValue("content")
-		createdAt := time.Now().Format("2006-01-02 15:04:05")
-		statement, _ := database.Prepare("INSERT INTO comments (username, post_id, content, created_at) VALUES (?, ?, ?, ?)")
-		statement.Exec(username, postId, content, createdAt)
-		w.WriteHeader(http.StatusOK)
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
 	}
+
+	if err := r.ParseForm(); err != nil {
+		fmt.Fprintf(w, "ParseForm() err: %v", err)
+		return
+	}
+	cookie, _ := r.Cookie("SESSION")
+	username := getUser(cookie.Value)
+	postId := r.FormValue("postId")
+	content := r.FormValue("content")
+	createdAt := time.Now().Format("2006-01-02 15:04:05")
+	statement, _ := database.Prepare("INSERT INTO comments (username, post_id, content, created_at) VALUES (?, ?, ?, ?)")
+	statement.Exec(username, postId, content, createdAt)
+	w.WriteHeader(http.StatusOK)
 }
 
 // get post by id return a Post struct with the post data
@@ -333,13 +314,16 @@ func getPost(id string) Post {
 }
 
 func displayPost(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		id := r.URL.Query().Get("id")
-		post := getPost(id)
-		post.Comments = getComments(id)
-		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "postTemplate.html", post)
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
 	}
+
+	id := r.URL.Query().Get("id")
+	post := getPost(id)
+	post.Comments = getComments(id)
+	t, _ := template.ParseGlob("templates/*.html")
+	t.ExecuteTemplate(w, "postTemplate.html", post)
 }
 
 // get comments by post id
@@ -368,11 +352,14 @@ func getPosts() []Post {
 
 // display all posts on a template
 func getPostsApi(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		posts := getPosts()
-		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "posts.html", posts)
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
 	}
+
+	posts := getPosts()
+	t, _ := template.ParseGlob("templates/*.html")
+	t.ExecuteTemplate(w, "posts.html", posts)
 }
 
 func createVoteTable(database *sql.DB) {
@@ -428,7 +415,8 @@ func voteApi(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Upvote added"))
 			return
-		} else if voteInt == -1 {
+		}
+		if voteInt == -1 {
 			if HasDownvoted(username, postIdInt) {
 				// remove vote
 				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
@@ -509,23 +497,23 @@ func createCategoriesTable(database *sql.DB) {
 }
 
 func createCategories(database *sql.DB) {
-	statement, _ := database.Prepare("INSERT INTO categories (name) VALUES (?)")
-	statement.Exec("General")
-	statement.Exec("Technology")
-	statement.Exec("Science")
-	statement.Exec("Sports")
-	statement.Exec("Gaming")
-	statement.Exec("Music")
-	statement.Exec("Books")
-	statement.Exec("Movies")
-	statement.Exec("TV")
-	statement.Exec("Food")
-	statement.Exec("Travel")
-	statement.Exec("Photography")
-	statement.Exec("Art")
-	statement.Exec("Writing")
-	statement.Exec("Programming")
-	statement.Exec("Other")
+	statement, _ := database.Prepare("INSERT INTO categories (name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = ?)")
+	statement.Exec("General", "General")
+	statement.Exec("Technology", "Technology")
+	statement.Exec("Science", "Science")
+	statement.Exec("Sports", "Sports")
+	statement.Exec("Gaming", "Gaming")
+	statement.Exec("Music", "Music")
+	statement.Exec("Books", "Books")
+	statement.Exec("Movies", "Movies")
+	statement.Exec("TV", "TV")
+	statement.Exec("Food", "Food")
+	statement.Exec("Travel", "Travel")
+	statement.Exec("Photography", "Photography")
+	statement.Exec("Art", "Art")
+	statement.Exec("Writing", "Writing")
+	statement.Exec("Programming", "Programming")
+	statement.Exec("Other", "Other")
 }
 
 func getCategories(database *sql.DB) []string {
@@ -598,6 +586,8 @@ func getPostsByApi(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("You must be logged in to view your liked posts"))
 	}
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("Invalid request"))
 }
 
 func getLikedPosts(username string) []Post {
@@ -614,35 +604,33 @@ func getLikedPosts(username string) []Post {
 }
 
 func isLoggedIn(r *http.Request) bool {
-	cookie, _ := r.Cookie("SESSION")
-	if cookie != nil {
-		var cookieExists bool
-		err := database.QueryRow("SELECT IIF(COUNT(*), 'true', 'false') FROM users WHERE cookie = ?", cookie.Value).Scan(&cookieExists)
-		if err != nil {
-			return false
-		}
-		if cookieExists {
-			rows, _ := database.Query("SELECT expires FROM users WHERE cookie = ?", cookie.Value)
-			var expires string
-			for rows.Next() {
-				rows.Scan(&expires)
-			}
-
-			if isExpired(expires) {
-				return false
-			}
-
-			rows, _ = database.Query("SELECT username FROM users WHERE cookie = ?", cookie.Value)
-			for rows.Next() {
-				return true
-			}
-		} else {
-			return false
-		}
-
-		return true
+	cookie, err := r.Cookie("SESSION")
+	if err != nil {
+		return false
 	}
-	return false
+
+	var cookieExists bool
+	err = database.QueryRow("SELECT IIF(COUNT(*), 'true', 'false') FROM users WHERE cookie = ?", cookie.Value).Scan(&cookieExists)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	if !cookieExists {
+		return false
+	}
+
+	rows, _ := database.Query("SELECT expires FROM users WHERE cookie = ?", cookie.Value)
+	var expires string
+	for rows.Next() {
+		rows.Scan(&expires)
+	}
+
+	if isExpired(expires) {
+		return false
+	}
+
+	return true
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
@@ -653,4 +641,5 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		statement.Exec(username)
 	}
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	return
 }
