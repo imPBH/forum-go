@@ -74,6 +74,7 @@ func main() {
 	router.HandleFunc("/post", displayPost)
 	router.HandleFunc("/posts", getPostsApi)
 	router.HandleFunc("/api/vote", voteApi)
+	router.HandleFunc("/filter", getPostsByApi)
 
 	router.Handle("/templates/", http.StripPrefix("/templates/", fs))
 	http.ListenAndServe(":8000", router)
@@ -283,7 +284,7 @@ func createPostApi(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		stringCategories := strings.Join(categories, ";")
+		stringCategories := strings.Join(categories, ",")
 		fmt.Println(stringCategories)
 		createdAt := time.Now().Format("2006-01-02 15:04:05")
 		statement, _ := database.Prepare("INSERT INTO posts (username, title, categories, content, created_at, upvotes, downvotes) VALUES (?, ?, ?, ?, ?, ?, ?)")
@@ -535,4 +536,27 @@ func getCategories(database *sql.DB) []string {
 		categories = append(categories, name)
 	}
 	return categories
+}
+
+func getPostsByCategory(category string) []Post {
+	rows, _ := database.Query("SELECT id, username, title, categories, content, created_at, upvotes, downvotes  FROM posts WHERE categories LIKE ?", "%"+category+"%")
+	var posts []Post
+	for rows.Next() {
+		var post Post
+		var catString string
+		rows.Scan(&post.Id, &post.Username, &post.Title, &catString, &post.Content, &post.CreatedAt, &post.UpVotes, &post.DownVotes)
+		post.Categories = strings.Split(catString, ",")
+		posts = append(posts, post)
+	}
+	return posts
+}
+
+func getPostsByApi(w http.ResponseWriter, r *http.Request) {
+	method := r.URL.Query().Get("by")
+	if method == "category" {
+		category := r.URL.Query().Get("category")
+		posts := getPostsByCategory(category)
+		t, _ := template.ParseGlob("templates/*.html")
+		t.ExecuteTemplate(w, "posts.html", posts)
+	}
 }
