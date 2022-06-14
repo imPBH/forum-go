@@ -573,20 +573,29 @@ func getPostsByApi(w http.ResponseWriter, r *http.Request) {
 		t.ExecuteTemplate(w, "posts.html", posts)
 		return
 	}
-	if method == "user" {
-		username := r.URL.Query().Get("username")
-		posts := getPostsByUser(username)
-		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "posts.html", posts)
-		return
+	if method == "myposts" {
+		if isLoggedIn(r) {
+			cookie, _ := r.Cookie("SESSION")
+			username := getUser(cookie.Value)
+			posts := getPostsByUser(username)
+			t, _ := template.ParseGlob("templates/*.html")
+			t.ExecuteTemplate(w, "posts.html", posts)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("You must be logged in to view your posts"))
 	}
 	if method == "liked" {
-		cookie, _ := r.Cookie("SESSION")
-		username := getUser(cookie.Value)
-		posts := getLikedPosts(username)
-		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "posts.html", posts)
-		return
+		if isLoggedIn(r) {
+			cookie, _ := r.Cookie("SESSION")
+			username := getUser(cookie.Value)
+			posts := getLikedPosts(username)
+			t, _ := template.ParseGlob("templates/*.html")
+			t.ExecuteTemplate(w, "posts.html", posts)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("You must be logged in to view your liked posts"))
 	}
 }
 
@@ -601,4 +610,36 @@ func getLikedPosts(username string) []Post {
 		posts = append(posts, post)
 	}
 	return posts
+}
+
+func isLoggedIn(r *http.Request) bool {
+	cookie, _ := r.Cookie("SESSION")
+	if cookie != nil {
+		var cookieExists bool
+		err := database.QueryRow("SELECT IIF(COUNT(*), 'true', 'false') FROM users WHERE cookie = ?", cookie.Value).Scan(&cookieExists)
+		if err != nil {
+			return false
+		}
+		if cookieExists {
+			rows, _ := database.Query("SELECT expires FROM users WHERE cookie = ?", cookie.Value)
+			var expires string
+			for rows.Next() {
+				rows.Scan(&expires)
+			}
+
+			if isExpired(expires) {
+				return false
+			}
+
+			rows, _ = database.Query("SELECT username FROM users WHERE cookie = ?", cookie.Value)
+			for rows.Next() {
+				return true
+			}
+		} else {
+			return false
+		}
+
+		return true
+	}
+	return false
 }
