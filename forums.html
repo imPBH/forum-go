@@ -19,38 +19,19 @@
 
 <body>
     <header>
-        <!--NavBar Section-->
+        <header>
+            <div class="header">
 
-        <div class="navbar">
-            <form action="signinForm.html" method="post">
-                <button type="submit" class="signin">Sign In</button>
-            </form><!--Sign In Button-->
-            <nav class="navigation hide" id="navigation">
-                <span class="close-icon" id="close-icon" onclick="showIconBar()"><i class="fa fa-close"></i></span>
-                <ul class="nav-list">
-                    <li class="nav-item"><a href="forums.html">Forums</a></li>
-                    <li class="nav-item"><a href="posts.html">Posts</a></li>
-                    <li class="nav-item"><a href="detail.html">Detail</a></li>
-                </ul>
-            </nav>
-            <a class="bar-icon" id="iconBar" onclick="hideIconBar()"><i class="fa fa-bars"></i></a>
-            <div class="brand">HAPPY FEET
+                <a href="#default" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+                <div class="header-right">
+                    <a class="active" href="forums.html">Home</a>
+                    <a href="#contact">fav</a>
+                    <a href="#about">create post</a>
+                    <a href="#login">Log out</a>
 
-        </div>
-        <!--SearchBox Section-->
-        <div class="search-box">
-            <div>
-                <select name="" id="">
-                    <option value="Everything">Everything</option>
-                    <option value="Titles">Titles</option>
-                    <option value="Descriptions">Descriptions</option>
-
-                </select>
-                <input type="text" name="q" placeholder="search ...">
-                <button><i class="fa fa-search"></i></button>
+                </div>
             </div>
-        </div>
-        </div>
+        </header>
     </header>
     <div id=" main-content">
     <div id="container" class="container">
@@ -79,7 +60,7 @@
         <!--More-->
         
         <div class="subforum">
-            <button onclick="showContainer()">Click me</button>
+            <button onclick="showContainer()">show</button>
             <div class="subforum-title">
                 <h1>General Information</h1>
             </div>
