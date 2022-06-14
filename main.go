@@ -10,18 +10,20 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type Post struct {
-	Id        int
-	Username  string
-	Title     string
-	Content   string
-	CreatedAt string
-	UpVotes   int
-	DownVotes int
-	Comments  []Comment
+	Id         int
+	Username   string
+	Title      string
+	Categories []string
+	Content    string
+	CreatedAt  string
+	UpVotes    int
+	DownVotes  int
+	Comments   []Comment
 }
 
 type Comment struct {
@@ -32,6 +34,7 @@ type Comment struct {
 	CreatedAt string
 }
 
+// Database
 var database *sql.DB
 
 func main() {
@@ -54,6 +57,8 @@ func main() {
 	createPostTable(database)
 	createCommentTable(database)
 	createVoteTable(database)
+	createCategoriesTable(database)
+	createCategories(database)
 
 	fs := http.FileServer(http.Dir("templates"))
 	router := http.NewServeMux()
@@ -152,7 +157,7 @@ func registerApi(w http.ResponseWriter, r *http.Request) {
 		addUser(database, username, email, password, value, expiration.Format("2006-01-02 15:04:05"))
 		cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
 		http.SetCookie(w, &cookie)
-		http.Redirect(w, r, "/home", http.StatusFound)
+		http.Redirect(w, r, "/", http.StatusFound)
 	} else {
 		if !emailNotTaken(email) {
 			http.Redirect(w, r, "/register?err=email_taken", http.StatusFound)
@@ -193,7 +198,7 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 		// update cookie in DB
 		statement, _ := database.Prepare("UPDATE users SET cookie = ?, expires = ? WHERE email = ?")
 		statement.Exec(value, expiration.Format("2006-01-02 15:04:05"), email)
-		http.Redirect(w, r, "/home", http.StatusFound)
+		http.Redirect(w, r, "/", http.StatusFound)
 	}
 }
 
@@ -238,7 +243,7 @@ func usernameNotTaken(username string) bool {
 
 // create post table
 func createPostTable(database *sql.DB) {
-	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, title TEXT, content TEXT, created_at TEXT, upvotes INTEGER, downvotes INTEGER)")
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, title TEXT, categories TEXT, content TEXT, created_at TEXT, upvotes INTEGER, downvotes INTEGER)")
 	statement.Exec()
 }
 
@@ -268,9 +273,21 @@ func createPostApi(w http.ResponseWriter, r *http.Request) {
 
 		title := r.FormValue("title")
 		content := r.FormValue("content")
+		categories := r.Form["categories[]"]
+		validCategories := getCategories(database)
+		for _, category := range categories {
+			// if string not in array, return error
+			if !inArray(category, validCategories) {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("Invalid category : " + category))
+				return
+			}
+		}
+		stringCategories := strings.Join(categories, ";")
+		fmt.Println(stringCategories)
 		createdAt := time.Now().Format("2006-01-02 15:04:05")
-		statement, _ := database.Prepare("INSERT INTO posts (username, title, content, created_at, upvotes, downvotes) VALUES (?, ?, ?, ?, ?, ?)")
-		statement.Exec(username, title, content, createdAt, 0, 0)
+		statement, _ := database.Prepare("INSERT INTO posts (username, title, categories, content, created_at, upvotes, downvotes) VALUES (?, ?, ?, ?, ?, ?, ?)")
+		statement.Exec(username, title, stringCategories, content, createdAt, 0, 0)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Post created"))
 	}
@@ -301,11 +318,14 @@ func commentsApi(w http.ResponseWriter, r *http.Request) {
 
 // get post by id return a Post struct with the post data
 func getPost(id string) Post {
-	rows, _ := database.Query("SELECT username, title, content FROM posts WHERE id = ?", id)
+	rows, _ := database.Query("SELECT username, title, categorie, content, created_at FROM posts WHERE id = ?", id)
 	var post Post
 	post.Id, _ = strconv.Atoi(id)
 	for rows.Next() {
-		rows.Scan(&post.Username, &post.Title, &post.Content)
+		categories := ""
+		rows.Scan(&post.Username, &post.Title, &categories, &post.Content, &post.CreatedAt)
+		categoriesArray := strings.Split(categories, ";")
+		post.Categories = categoriesArray
 	}
 	return post
 }
@@ -470,4 +490,49 @@ func HasDownvoted(username string, postId int) bool {
 		return true
 	}
 	return false
+}
+
+func inArray(input string, array []string) bool {
+	for _, v := range array {
+		if v == input {
+			return true
+		}
+	}
+	return false
+}
+
+func createCategoriesTable(database *sql.DB) {
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY, name TEXT)")
+	statement.Exec()
+}
+
+func createCategories(database *sql.DB) {
+	statement, _ := database.Prepare("INSERT INTO categories (name) VALUES (?)")
+	statement.Exec("General")
+	statement.Exec("Technology")
+	statement.Exec("Science")
+	statement.Exec("Sports")
+	statement.Exec("Gaming")
+	statement.Exec("Music")
+	statement.Exec("Books")
+	statement.Exec("Movies")
+	statement.Exec("TV")
+	statement.Exec("Food")
+	statement.Exec("Travel")
+	statement.Exec("Photography")
+	statement.Exec("Art")
+	statement.Exec("Writing")
+	statement.Exec("Programming")
+	statement.Exec("Other")
+}
+
+func getCategories(database *sql.DB) []string {
+	rows, _ := database.Query("SELECT name FROM categories")
+	var categories []string
+	for rows.Next() {
+		var name string
+		rows.Scan(&name)
+		categories = append(categories, name)
+	}
+	return categories
 }
