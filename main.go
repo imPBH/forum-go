@@ -51,9 +51,8 @@ func main() {
 	}
 
 	database, _ = sql.Open("sqlite3", "./database.db")
-	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password TEXT, cookie TEXT, expires TEXT)")
-	statement.Exec()
 
+	createUsersTable(database)
 	createPostTable(database)
 	createCommentTable(database)
 	createVoteTable(database)
@@ -81,12 +80,12 @@ func main() {
 	http.ListenAndServe(":8000", router)
 }
 
+// index displays the index page
 func index(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
-
 	if isLoggedIn(r) {
 		cookie, _ := r.Cookie("SESSION")
 		t, _ := template.ParseGlob("templates/*.html")
@@ -98,18 +97,22 @@ func index(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func HashPassword(password string) (string, error) {
+// hashPassword hashes the password
+func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
 }
 
+// addUser adds a user to the database
 func addUser(database *sql.DB, username string, email string, password string, cookie string, expires string) {
-	password, _ = HashPassword(password)
+	password, _ = hashPassword(password)
 	statement, _ := database.Prepare("INSERT INTO users (username, email, password, cookie, expires) VALUES (?, ?, ?, ?, ?)")
 	statement.Exec(username, email, password, cookie, expires)
-	fmt.Println("username: " + username + " email: " + email + " password: " + password)
+	now := time.Now().Format("2006-01-02 15:04:05")
+	fmt.Println("Added user: " + username + " with email: " + email + " at " + now)
 }
 
+// registerApi handles the register api
 func registerApi(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		fmt.Fprintf(w, "ParseForm() err: %v", err)
@@ -128,7 +131,6 @@ func registerApi(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/register?err=username_taken", http.StatusFound)
 		return
 	}
-
 	addUser(database, username, email, password, value, expiration.Format("2006-01-02 15:04:05"))
 	cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
 	http.SetCookie(w, &cookie)
@@ -137,6 +139,7 @@ func registerApi(w http.ResponseWriter, r *http.Request) {
 
 }
 
+//loginApi handles the login api
 func loginApi(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		fmt.Fprintf(w, "ParseForm() err: %v", err)
@@ -144,21 +147,21 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 	}
 	submittedEmail := r.FormValue("email")
 	submittedPassword := r.FormValue("password")
-	fmt.Println(submittedEmail)
-	fmt.Println(submittedPassword)
 	rows, _ := database.Query("SELECT username, email, password FROM users WHERE email = ?", submittedEmail)
 	var username string
 	var email string
 	var password string
 	for rows.Next() {
 		rows.Scan(&username, &email, &password)
-		fmt.Println(username + " : " + email + " " + password)
 	}
+	now := time.Now().Format("2006-01-02 15:04:05")
 	if username == "" && email == "" && password == "" {
+		fmt.Println("Login failed (email not found) for " + submittedEmail + " at " + now)
 		http.Redirect(w, r, "/login?err=invalid_email", http.StatusFound)
 		return
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(password), []byte(submittedPassword)); err != nil {
+		fmt.Println("Login failed (wrong password) for " + submittedEmail + " at " + now)
 		http.Redirect(w, r, "/login?err=invalid_password", http.StatusFound)
 		return
 	}
@@ -166,29 +169,33 @@ func loginApi(w http.ResponseWriter, r *http.Request) {
 	value := uuid.NewV4().String()
 	cookie := http.Cookie{Name: "SESSION", Value: value, Expires: expiration, Path: "/"}
 	http.SetCookie(w, &cookie)
-
 	// update cookie in DB
 	statement, _ := database.Prepare("UPDATE users SET cookie = ?, expires = ? WHERE email = ?")
 	statement.Exec(value, expiration.Format("2006-01-02 15:04:05"), email)
+	fmt.Println("Logged in user: " + username + " with email: " + email + " at " + now)
 	http.Redirect(w, r, "/", http.StatusFound)
 	return
 }
 
+// register displays the register page
 func register(w http.ResponseWriter, r *http.Request) {
 	t, _ := template.ParseGlob("templates/*.html")
 	t.ExecuteTemplate(w, "register.html", "")
 }
 
+// login displays template for the login page
 func login(w http.ResponseWriter, r *http.Request) {
 	t, _ := template.ParseGlob("templates/*.html")
 	t.ExecuteTemplate(w, "login.html", "")
 }
 
+// isExpired returns true if the cookie has expired
 func isExpired(expires string) bool {
 	expiresTime, _ := time.Parse("2006-01-02 15:04:05", expires)
 	return time.Now().After(expiresTime)
 }
 
+// emailNotTaken returns true if the email is not taken
 func emailNotTaken(email string) bool {
 	rows, _ := database.Query("SELECT email FROM users WHERE email = ?", email)
 	var emailExists string
@@ -201,6 +208,7 @@ func emailNotTaken(email string) bool {
 	return false
 }
 
+// usernameNotTaken returns true if the username is not taken
 func usernameNotTaken(username string) bool {
 	rows, _ := database.Query("SELECT username FROM users WHERE username = ?", username)
 	var usernameExists string
@@ -213,13 +221,13 @@ func usernameNotTaken(username string) bool {
 	return false
 }
 
-// create post table
+// createPostTable create post table
 func createPostTable(database *sql.DB) {
 	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, title TEXT, categories TEXT, content TEXT, created_at TEXT, upvotes INTEGER, downvotes INTEGER)")
 	statement.Exec()
 }
 
-// get user by cookie
+// getUser get user by cookie
 func getUser(cookie string) string {
 	rows, _ := database.Query("SELECT username FROM users WHERE cookie = ?", cookie)
 	var username string
@@ -229,29 +237,22 @@ func getUser(cookie string) string {
 	return username
 }
 
-// create a post
+// createPostApi creates a post
 func createPostApi(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-
 	if err := r.ParseForm(); err != nil {
 		fmt.Fprintf(w, "ParseForm() err: %v", err)
 		return
 	}
-
 	if !isLoggedIn(r) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-
 	cookie, _ := r.Cookie("SESSION")
 	username := getUser(cookie.Value)
-
-	fmt.Println("cookie: " + cookie.Value)
-	fmt.Println("username: " + username)
-
 	title := r.FormValue("title")
 	content := r.FormValue("content")
 	categories := r.Form["categories[]"]
@@ -265,26 +266,27 @@ func createPostApi(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	stringCategories := strings.Join(categories, ",")
-	fmt.Println(stringCategories)
 	createdAt := time.Now().Format("2006-01-02 15:04:05")
 	statement, _ := database.Prepare("INSERT INTO posts (username, title, categories, content, created_at, upvotes, downvotes) VALUES (?, ?, ?, ?, ?, ?, ?)")
 	statement.Exec(username, title, stringCategories, content, createdAt, 0, 0)
+	fmt.Println("Post created by " + username + " with title " + title + " at " + createdAt)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Post created"))
+	return
 }
 
-// create a comment table
+// createCommentTable creates a comment table
 func createCommentTable(database *sql.DB) {
 	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, post_id INTEGER, content TEXT, created_at TEXT)")
 	statement.Exec()
 }
 
+// commentsApi creates a comment
 func commentsApi(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-
 	if err := r.ParseForm(); err != nil {
 		fmt.Fprintf(w, "ParseForm() err: %v", err)
 		return
@@ -296,10 +298,12 @@ func commentsApi(w http.ResponseWriter, r *http.Request) {
 	createdAt := time.Now().Format("2006-01-02 15:04:05")
 	statement, _ := database.Prepare("INSERT INTO comments (username, post_id, content, created_at) VALUES (?, ?, ?, ?)")
 	statement.Exec(username, postId, content, createdAt)
+	fmt.Println("Comment created by " + username + " on post " + postId + " at " + createdAt)
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Comment created"))
 }
 
-// get post by id return a Post struct with the post data
+// getPost by id returns a Post struct with the post data
 func getPost(id string) Post {
 	rows, _ := database.Query("SELECT username, title, categories, content, created_at FROM posts WHERE id = ?", id)
 	var post Post
@@ -313,12 +317,12 @@ func getPost(id string) Post {
 	return post
 }
 
+// displayPost displays a post on a template
 func displayPost(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-
 	id := r.URL.Query().Get("id")
 	post := getPost(id)
 	post.Comments = getComments(id)
@@ -326,7 +330,7 @@ func displayPost(w http.ResponseWriter, r *http.Request) {
 	t.ExecuteTemplate(w, "postTemplate.html", post)
 }
 
-// get comments by post id
+// getComments get comments by post id
 func getComments(id string) []Comment {
 	rows, _ := database.Query("SELECT id, username, content FROM comments WHERE post_id = ?", id)
 	var comments []Comment
@@ -338,7 +342,7 @@ func getComments(id string) []Comment {
 	return comments
 }
 
-// get all posts
+// getPosts get all posts
 func getPosts() []Post {
 	rows, _ := database.Query("SELECT id, username, title, content, created_at FROM posts")
 	var posts []Post
@@ -350,23 +354,24 @@ func getPosts() []Post {
 	return posts
 }
 
-// display all posts on a template
+// getPostsApi display all posts on a template
 func getPostsApi(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-
 	posts := getPosts()
 	t, _ := template.ParseGlob("templates/*.html")
 	t.ExecuteTemplate(w, "posts.html", posts)
 }
 
+// createVoteTable create the vote table into given database
 func createVoteTable(database *sql.DB) {
 	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS votes (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, post_id INTEGER, vote INTEGER)")
 	statement.Exec()
 }
 
+// voteApi api to vote on a post
 func voteApi(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		if err := r.ParseForm(); err != nil {
@@ -379,75 +384,53 @@ func voteApi(w http.ResponseWriter, r *http.Request) {
 		postIdInt, _ := strconv.Atoi(postId)
 		vote := r.FormValue("vote")
 		voteInt, _ := strconv.Atoi(vote)
-
+		now := time.Now().Format("2006-01-02 15:04:05")
 		if voteInt == 1 {
-			if HasUpvoted(username, postIdInt) {
-				// remove vote
-				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
-				statement.Exec(username, postIdInt, 1)
-				statement, _ = database.Prepare("UPDATE posts SET upvotes = upvotes - 1 WHERE id = ?")
-				statement.Exec(postIdInt)
+			if hasUpvoted(username, postIdInt) {
+				removeVote(database, postIdInt, username)
+				decreaseUpvotes(database, postIdInt)
+				fmt.Println("Removed upvote from " + username + " on post " + postId + " at " + now)
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Vote removed"))
 				return
 			}
-			if HasDownvoted(username, postIdInt) {
-				// remove downvote
-				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
-				statement.Exec(username, postIdInt, -1)
-				statement, _ = database.Prepare("UPDATE posts SET downvotes = downvotes - 1 WHERE id = ?")
-				statement.Exec(postIdInt)
-
-				// add upvote
-				statement, _ = database.Prepare("UPDATE posts SET upvotes = upvotes + 1 WHERE id = ?")
-				statement.Exec(postIdInt)
-				statement, _ = database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
-				statement.Exec(username, postIdInt, 1)
+			if hasDownvoted(username, postIdInt) {
+				decreaseDownvotes(database, postIdInt)
+				increaseUpvotes(database, postIdInt)
+				updateVote(database, postIdInt, username, 1)
+				fmt.Println(username + " upvoted" + " on post " + postId + " at " + now)
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Upvote added"))
 				return
 			}
-			// add upvote
-			statement1, _ := database.Prepare("UPDATE posts SET upvotes = upvotes + 1 WHERE id = ?")
-			statement1.Exec(postIdInt)
-			statement2, _ := database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
-			statement2.Exec(username, postIdInt, 1)
+			increaseUpvotes(database, postIdInt)
+			addVote(database, postIdInt, username, 1)
+			fmt.Println(username + " upvoted" + " on post " + postId + " at " + now)
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Upvote added"))
 			return
 		}
 		if voteInt == -1 {
-			if HasDownvoted(username, postIdInt) {
-				// remove vote
-				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
-				statement.Exec(username, postIdInt, voteInt)
-				statement, _ = database.Prepare("UPDATE posts SET downvotes = downvotes - 1 WHERE id = ?")
-				statement.Exec(postIdInt)
+			if hasDownvoted(username, postIdInt) {
+				removeVote(database, postIdInt, username)
+				decreaseDownvotes(database, postIdInt)
+				fmt.Println("Removed downvote from " + username + " on post " + postId + " at " + now)
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Vote removed"))
 				return
 			}
-			if HasUpvoted(username, postIdInt) {
-				// remove upvote
-				statement, _ := database.Prepare("DELETE FROM votes WHERE username = ? AND post_id = ? AND vote = ?")
-				statement.Exec(username, postIdInt, 1)
-				statement, _ = database.Prepare("UPDATE posts SET upvotes = upvotes - 1 WHERE id = ?")
-				statement.Exec(postIdInt)
-
-				// add downvote
-				statement, _ = database.Prepare("UPDATE posts SET downvotes = downvotes + 1 WHERE id = ?")
-				statement.Exec(postIdInt)
-				statement, _ = database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
-				statement.Exec(username, postIdInt, -1)
+			if hasUpvoted(username, postIdInt) {
+				decreaseUpvotes(database, postIdInt)
+				increaseDownvotes(database, postIdInt)
+				updateVote(database, postIdInt, username, -1)
+				fmt.Println(username + " downvoted" + " on post " + postId + " at " + now)
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Downvote added"))
 				return
 			}
-			// add downvote
-			statement1, _ := database.Prepare("UPDATE posts SET downvotes = downvotes + 1 WHERE id = ?")
-			statement1.Exec(postIdInt)
-			statement2, _ := database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
-			statement2.Exec(username, postIdInt, -1)
+			increaseDownvotes(database, postIdInt)
+			addVote(database, postIdInt, username, -1)
+			fmt.Println(username + " downvoted" + " on post " + postId + " at " + now)
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Downvote added"))
 			return
@@ -456,9 +439,12 @@ func voteApi(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Invalid vote"))
 		return
 	}
+	w.WriteHeader(http.StatusMethodNotAllowed)
+	return
 }
 
-func HasUpvoted(username string, postId int) bool {
+// hasUpvoted check if user has upvoted a post
+func hasUpvoted(username string, postId int) bool {
 	rows, _ := database.Query("SELECT vote FROM votes WHERE username = ? AND post_id = ? AND vote = 1", username, postId)
 	vote := 0
 	for rows.Next() {
@@ -470,7 +456,8 @@ func HasUpvoted(username string, postId int) bool {
 	return false
 }
 
-func HasDownvoted(username string, postId int) bool {
+// hasDownvoted check if user has downvoted a post
+func hasDownvoted(username string, postId int) bool {
 	rows, _ := database.Query("SELECT vote FROM votes WHERE username = ? AND post_id = ? AND vote = -1", username, postId)
 	vote := 0
 	for rows.Next() {
@@ -482,6 +469,7 @@ func HasDownvoted(username string, postId int) bool {
 	return false
 }
 
+// inArray check if a string is in an array
 func inArray(input string, array []string) bool {
 	for _, v := range array {
 		if v == input {
@@ -491,11 +479,13 @@ func inArray(input string, array []string) bool {
 	return false
 }
 
+// createCategoriesTable create the categories' table into given database
 func createCategoriesTable(database *sql.DB) {
 	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY, name TEXT)")
 	statement.Exec()
 }
 
+// createCategories creates categories in the database
 func createCategories(database *sql.DB) {
 	statement, _ := database.Prepare("INSERT INTO categories (name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = ?)")
 	statement.Exec("General", "General")
@@ -516,6 +506,7 @@ func createCategories(database *sql.DB) {
 	statement.Exec("Other", "Other")
 }
 
+// getCategories returns all categories
 func getCategories(database *sql.DB) []string {
 	rows, _ := database.Query("SELECT name FROM categories")
 	var categories []string
@@ -527,6 +518,7 @@ func getCategories(database *sql.DB) []string {
 	return categories
 }
 
+// getPostsByCategory returns all posts in a given category
 func getPostsByCategory(category string) []Post {
 	rows, _ := database.Query("SELECT id, username, title, categories, content, created_at, upvotes, downvotes  FROM posts WHERE categories LIKE ?", "%"+category+"%")
 	var posts []Post
@@ -540,6 +532,7 @@ func getPostsByCategory(category string) []Post {
 	return posts
 }
 
+// getPostsByUser returns all posts by a user
 func getPostsByUser(username string) []Post {
 	rows, _ := database.Query("SELECT id, username, title, categories, content, created_at, upvotes, downvotes  FROM posts WHERE username = ?", username)
 	var posts []Post
@@ -553,6 +546,7 @@ func getPostsByUser(username string) []Post {
 	return posts
 }
 
+// getPostByApi gets all post filtered by the given parameters
 func getPostsByApi(w http.ResponseWriter, r *http.Request) {
 	method := r.URL.Query().Get("by")
 	if method == "category" {
@@ -590,6 +584,7 @@ func getPostsByApi(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Invalid request"))
 }
 
+// getLikedPosts gets posts that user has liked
 func getLikedPosts(username string) []Post {
 	rows, _ := database.Query("SELECT id, username, title, categories, content, created_at, upvotes, downvotes  FROM posts WHERE id IN (SELECT post_id FROM votes WHERE username = ? AND vote = 1)", username)
 	var posts []Post
@@ -603,43 +598,90 @@ func getLikedPosts(username string) []Post {
 	return posts
 }
 
+// isLoggedIn checks if the user is logged in
 func isLoggedIn(r *http.Request) bool {
 	cookie, err := r.Cookie("SESSION")
 	if err != nil {
 		return false
 	}
-
 	var cookieExists bool
 	err = database.QueryRow("SELECT IIF(COUNT(*), 'true', 'false') FROM users WHERE cookie = ?", cookie.Value).Scan(&cookieExists)
 	if err != nil {
-		fmt.Println(err)
 		return false
 	}
-
 	if !cookieExists {
 		return false
 	}
-
 	rows, _ := database.Query("SELECT expires FROM users WHERE cookie = ?", cookie.Value)
 	var expires string
 	for rows.Next() {
 		rows.Scan(&expires)
 	}
-
 	if isExpired(expires) {
 		return false
 	}
-
 	return true
 }
 
+// logout deletes the session cookie from the database
 func logout(w http.ResponseWriter, r *http.Request) {
 	cookie, _ := r.Cookie("SESSION")
+	username := getUser(cookie.Value)
+	now := time.Now().Format("2006-01-02 15:04:05")
 	if cookie != nil {
 		username := getUser(cookie.Value)
 		statement, _ := database.Prepare("UPDATE users SET cookie = '', expires = '' WHERE username = ?")
 		statement.Exec(username)
 	}
+	fmt.Println("User " + username + " logged out at " + now)
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 	return
+}
+
+// removeVote removes a vote from a post
+func removeVote(database *sql.DB, postId int, username string) {
+	statement, _ := database.Prepare("DELETE FROM votes WHERE post_id = ? AND username = ?")
+	statement.Exec(postId, username)
+}
+
+// decreaseUpvotes decreases the upvotes of a post by 1
+func decreaseUpvotes(database *sql.DB, postId int) {
+	statement, _ := database.Prepare("UPDATE posts SET upvotes = upvotes - 1 WHERE id = ?")
+	statement.Exec(postId)
+}
+
+// decreaseDownvotes decreases the downvotes of a post by 1
+func decreaseDownvotes(database *sql.DB, postId int) {
+	statement, _ := database.Prepare("UPDATE posts SET downvotes = downvotes - 1 WHERE id = ?")
+	statement.Exec(postId)
+}
+
+// increaseUpvotes increases the upvotes of a post by 1
+func increaseUpvotes(database *sql.DB, postId int) {
+	statement, _ := database.Prepare("UPDATE posts SET upvotes = upvotes + 1 WHERE id = ?")
+	statement.Exec(postId)
+}
+
+// increaseDownvotes increases the downvotes of a post by 1
+func increaseDownvotes(database *sql.DB, postId int) {
+	statement, _ := database.Prepare("UPDATE posts SET downvotes = downvotes + 1 WHERE id = ?")
+	statement.Exec(postId)
+}
+
+// addVote adds a vote to the database
+func addVote(database *sql.DB, postId int, username string, vote int) {
+	statement, _ := database.Prepare("INSERT INTO votes (username, post_id, vote) VALUES (?, ?, ?)")
+	statement.Exec(username, postId, vote)
+}
+
+// updateVote updates the vote of a user for a post
+func updateVote(database *sql.DB, postId int, username string, vote int) {
+	statement, _ := database.Prepare("UPDATE votes SET vote = ? WHERE post_id = ? AND username = ?")
+	statement.Exec(vote, postId, username)
+}
+
+// createUsersTable creates the users table
+func createUsersTable(database *sql.DB) {
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password TEXT, cookie TEXT, expires TEXT)")
+	statement.Exec()
 }
