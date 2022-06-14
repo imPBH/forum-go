@@ -319,13 +319,13 @@ func commentsApi(w http.ResponseWriter, r *http.Request) {
 
 // get post by id return a Post struct with the post data
 func getPost(id string) Post {
-	rows, _ := database.Query("SELECT username, title, categorie, content, created_at FROM posts WHERE id = ?", id)
+	rows, _ := database.Query("SELECT username, title, categories, content, created_at FROM posts WHERE id = ?", id)
 	var post Post
 	post.Id, _ = strconv.Atoi(id)
 	for rows.Next() {
-		categories := ""
-		rows.Scan(&post.Username, &post.Title, &categories, &post.Content, &post.CreatedAt)
-		categoriesArray := strings.Split(categories, ";")
+		catString := ""
+		rows.Scan(&post.Username, &post.Title, &catString, &post.Content, &post.CreatedAt)
+		categoriesArray := strings.Split(catString, ",")
 		post.Categories = categoriesArray
 	}
 	return post
@@ -580,4 +580,25 @@ func getPostsByApi(w http.ResponseWriter, r *http.Request) {
 		t.ExecuteTemplate(w, "posts.html", posts)
 		return
 	}
+	if method == "liked" {
+		cookie, _ := r.Cookie("SESSION")
+		username := getUser(cookie.Value)
+		posts := getLikedPosts(username)
+		t, _ := template.ParseGlob("templates/*.html")
+		t.ExecuteTemplate(w, "posts.html", posts)
+		return
+	}
+}
+
+func getLikedPosts(username string) []Post {
+	rows, _ := database.Query("SELECT id, username, title, categories, content, created_at, upvotes, downvotes  FROM posts WHERE id IN (SELECT post_id FROM votes WHERE username = ? AND vote = 1)", username)
+	var posts []Post
+	for rows.Next() {
+		var post Post
+		var catString string
+		rows.Scan(&post.Id, &post.Username, &post.Title, &catString, &post.Content, &post.CreatedAt, &post.UpVotes, &post.DownVotes)
+		post.Categories = strings.Split(catString, ",")
+		posts = append(posts, post)
+	}
+	return posts
 }
