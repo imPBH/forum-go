@@ -8,6 +8,30 @@ import (
 	"net/http"
 )
 
+type User struct {
+	IsLoggedIn bool
+	Username   string
+}
+
+type HomePage struct {
+	User              User
+	Categories        []string
+	Icons             []string
+	PostsByCategories [][]databaseAPI.Post
+}
+
+type PostsPage struct {
+	User  User
+	Title string
+	Posts []databaseAPI.Post
+	Icon  string
+}
+
+type PostPage struct {
+	User User
+	Post databaseAPI.Post
+}
+
 var database *sql.DB
 
 func SetDatabase(db *sql.DB) {
@@ -22,12 +46,24 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	}
 	if isLoggedIn(r) {
 		cookie, _ := r.Cookie("SESSION")
-		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "createpost.html", databaseAPI.GetUser(database, cookie.Value))
+		payload := HomePage{
+			User:              User{IsLoggedIn: true, Username: databaseAPI.GetUser(database, cookie.Value)},
+			Categories:        databaseAPI.GetCategories(database),
+			Icons:             databaseAPI.GetCategoriesIcons(database),
+			PostsByCategories: databaseAPI.GetPostsByCategories(database),
+		}
+		t, _ := template.ParseGlob("public/HTML/*.html")
+		t.ExecuteTemplate(w, "forum.html", payload)
 		return
 	}
-	t, _ := template.ParseGlob("templates/*.html")
-	t.ExecuteTemplate(w, "index.html", "")
+	payload := HomePage{
+		User:              User{IsLoggedIn: false},
+		Categories:        databaseAPI.GetCategories(database),
+		Icons:             databaseAPI.GetCategoriesIcons(database),
+		PostsByCategories: databaseAPI.GetPostsByCategories(database),
+	}
+	t, _ := template.ParseGlob("public/HTML/*.html")
+	t.ExecuteTemplate(w, "forum.html", payload)
 	return
 }
 
@@ -38,21 +74,17 @@ func DisplayPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.URL.Query().Get("id")
-	post := databaseAPI.GetPost(database, id)
-	post.Comments = databaseAPI.GetComments(database, id)
-	t, _ := template.ParseGlob("templates/*.html")
-	t.ExecuteTemplate(w, "postTemplate.html", post)
-}
-
-// GetPostsApi display all posts on a template
-func GetPostsApi(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
+	payload := PostPage{
+		Post: databaseAPI.GetPost(database, id),
 	}
-	posts := databaseAPI.GetPosts(database)
-	t, _ := template.ParseGlob("templates/*.html")
-	t.ExecuteTemplate(w, "posts.html", posts)
+	if !isLoggedIn(r) {
+		payload.User = User{IsLoggedIn: false}
+	} else {
+		payload.User = User{IsLoggedIn: true}
+	}
+	payload.Post.Comments = databaseAPI.GetComments(database, id)
+	t, _ := template.ParseGlob("public/HTML/*.html")
+	t.ExecuteTemplate(w, "detail.html", payload)
 }
 
 // GetPostsByApi GetPostByApi gets all post filtered by the given parameters
@@ -61,8 +93,16 @@ func GetPostsByApi(w http.ResponseWriter, r *http.Request) {
 	if method == "category" {
 		category := r.URL.Query().Get("category")
 		posts := databaseAPI.GetPostsByCategory(database, category)
-		t, _ := template.ParseGlob("templates/*.html")
-		t.ExecuteTemplate(w, "posts.html", posts)
+		payload := PostsPage{
+			Title: "Posts in category " + category,
+			Posts: posts,
+			Icon:  databaseAPI.GetCategoryIcon(database, category),
+		}
+		if isLoggedIn(r) {
+			payload.User = User{IsLoggedIn: true}
+		}
+		t, _ := template.ParseGlob("public/HTML/*.html")
+		t.ExecuteTemplate(w, "posts.html", payload)
 		return
 	}
 	if method == "myposts" {
@@ -70,27 +110,52 @@ func GetPostsByApi(w http.ResponseWriter, r *http.Request) {
 			cookie, _ := r.Cookie("SESSION")
 			username := databaseAPI.GetUser(database, cookie.Value)
 			posts := databaseAPI.GetPostsByUser(database, username)
-			t, _ := template.ParseGlob("templates/*.html")
-			t.ExecuteTemplate(w, "posts.html", posts)
+			payload := PostsPage{
+				User:  User{IsLoggedIn: true},
+				Title: "My posts",
+				Posts: posts,
+				Icon:  "fa-user",
+			}
+			t, _ := template.ParseGlob("public/HTML/*.html")
+			t.ExecuteTemplate(w, "posts.html", payload)
 			return
 		}
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("You must be logged in to view your posts"))
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
 	}
 	if method == "liked" {
 		if isLoggedIn(r) {
 			cookie, _ := r.Cookie("SESSION")
 			username := databaseAPI.GetUser(database, cookie.Value)
 			posts := databaseAPI.GetLikedPosts(database, username)
-			t, _ := template.ParseGlob("templates/*.html")
-			t.ExecuteTemplate(w, "posts.html", posts)
+			payload := PostsPage{
+				User:  User{IsLoggedIn: true},
+				Title: "Posts liked by me",
+				Posts: posts,
+				Icon:  "fa-heart",
+			}
+			t, _ := template.ParseGlob("public/HTML/*.html")
+			t.ExecuteTemplate(w, "posts.html", payload)
 			return
 		}
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("You must be logged in to view your liked posts"))
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
 	}
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte("Invalid request"))
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// NewPost displays the NewPost page
+func NewPost(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if !isLoggedIn(r) {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	t, _ := template.ParseGlob("public/HTML/*.html")
+	t.ExecuteTemplate(w, "createThread.html", nil)
 }
 
 // inArray check if a string is in an array
@@ -102,5 +167,3 @@ func inArray(input string, array []string) bool {
 	}
 	return false
 }
-
-// starting templating

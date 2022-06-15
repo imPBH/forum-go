@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+type Vote struct {
+	PostId int
+	Vote   int
+}
+
 // CreatePostApi creates a post
 func CreatePostApi(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
@@ -41,8 +46,7 @@ func CreatePostApi(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	databaseAPI.CreatePost(database, username, title, stringCategories, content, now)
 	fmt.Println("Post created by " + username + " with title " + title + " at " + now.Format("2006-01-02 15:04:05"))
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Post created"))
+	http.Redirect(w, r, "/filter?by=myposts", http.StatusFound)
 	return
 }
 
@@ -56,6 +60,10 @@ func CommentsApi(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "ParseForm() err: %v", err)
 		return
 	}
+	if !isLoggedIn(r) {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
 	cookie, _ := r.Cookie("SESSION")
 	username := databaseAPI.GetUser(database, cookie.Value)
 	postId := r.FormValue("postId")
@@ -64,13 +72,16 @@ func CommentsApi(w http.ResponseWriter, r *http.Request) {
 	postIdInt, _ := strconv.Atoi(postId)
 	databaseAPI.AddComment(database, username, postIdInt, content, now)
 	fmt.Println("Comment created by " + username + " on post " + postId + " at " + now.Format("2006-01-02 15:04:05"))
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Comment created"))
+	http.Redirect(w, r, "/post?id="+postId, http.StatusFound)
 }
 
 // VoteApi api to vote on a post
 func VoteApi(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
+		if !isLoggedIn(r) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		if err := r.ParseForm(); err != nil {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return

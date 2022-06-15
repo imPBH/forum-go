@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+type Error struct {
+	Message string
+}
+
 // RegisterApi handles the Register api
 func RegisterApi(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
@@ -21,12 +25,17 @@ func RegisterApi(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	value := uuid.NewV4().String()
 	expiration := time.Now().Add(31 * 24 * time.Hour)
-	if !databaseAPI.EmailNotTaken(database, email) {
-		http.Redirect(w, r, "/register?err=email_taken", http.StatusFound)
+
+	if username == "" || email == "" || password == "" {
+		http.Redirect(w, r, "/register?err=invalid_informations", http.StatusFound)
 		return
 	}
 	if !databaseAPI.UsernameNotTaken(database, username) {
 		http.Redirect(w, r, "/register?err=username_taken", http.StatusFound)
+		return
+	}
+	if !databaseAPI.EmailNotTaken(database, email) {
+		http.Redirect(w, r, "/register?err=email_taken", http.StatusFound)
 		return
 	}
 	databaseAPI.AddUser(database, username, email, password, value, expiration.Format("2006-01-02 15:04:05"))
@@ -108,12 +117,31 @@ func isExpired(expires string) bool {
 
 // Register displays the Register page
 func Register(w http.ResponseWriter, r *http.Request) {
-	t, _ := template.ParseGlob("templates/*.html")
-	t.ExecuteTemplate(w, "register.html", "")
+	error := r.URL.Query().Get("err")
+	payload := Error{Message: ""}
+	if error == "invalid_informations" {
+		payload = Error{Message: "Invalid informations"}
+	}
+	if error == "email_taken" {
+		payload = Error{Message: "Email already taken"}
+	}
+	if error == "username_taken" {
+		payload = Error{Message: "Username already taken"}
+	}
+	t, _ := template.ParseGlob("public/HTML/*.html")
+	t.ExecuteTemplate(w, "registerForm.html", payload)
 }
 
 // Login displays template for the Login page
 func Login(w http.ResponseWriter, r *http.Request) {
-	t, _ := template.ParseGlob("templates/*.html")
-	t.ExecuteTemplate(w, "login.html", "")
+	error := r.URL.Query().Get("err")
+	payload := Error{Message: ""}
+	if error == "invalid_email" {
+		payload = Error{Message: "Invalid email"}
+	}
+	if error == "invalid_password" {
+		payload = Error{Message: "Invalid password"}
+	}
+	t, _ := template.ParseGlob("public/HTML/*.html")
+	t.ExecuteTemplate(w, "signinForm.html", payload)
 }
