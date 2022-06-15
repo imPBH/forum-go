@@ -1,0 +1,79 @@
+{{ define "LoggedHeader" }}
+<div class="header">
+    <a href="/" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+    <div class="header-right">
+        <a class="active" href="/">Home</a>
+        <a href="/filter?by=liked">Liked Posts</a>
+        <a href="/filter?by=myposts">My Posts</a>
+        <a href="/newpost">New post</a>
+        <a href="/api/logout">Log out</a>
+    </div>
+</div>
+{{ end }}
+
+{{ define "DefaultHeader" }}
+<div class="header">
+    <a href="/" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+    <div class="header-right">
+        <a class="active" href="/">Home</a>
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+    </div>
+</div>
+{{ end }}
+
+{{ $icon := .Icon }}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forum</title>
+    <link rel="stylesheet" href="public/CSS/post.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital@1&display=swap" rel="stylesheet">
+</head>
+
+<body>
+<header>
+    {{ if .User.IsLoggedIn }}
+    {{ template "LoggedHeader" . }}
+    {{ else }}
+    {{ template "DefaultHeader" . }}
+    {{ end }}
+    </div>
+</header>
+<div class="container">
+    <!--Navigation-->
+    <div class="navigate">
+        <span><a href="/">Forum</a> >> <a href="">{{ .Title }}</a></span>
+    </div>
+    <!--Display posts table-->
+    <div class="posts-table">
+        <div class="table-head">
+            <div class="status">Filter</div>
+            <div class="subjects">Title</div>
+            <div class="last-reply">Created</div>
+        </div>
+        {{ range .Posts }}
+        <div class="table-row">
+            <div class="status"><i class="fa {{ $icon }}"></i></div>
+            <div class="subjects">
+                <a href="/post?id={{ .Id }}">{{ .Title }}</a>
+                <br>
+                <span>Started by <b><a>{{ .Username }}</a></b> .</span>
+            </div>
+            <div class="last-reply">
+                {{ .CreatedAt }}
+                <br>By <b><a>{{ .Username }}</a></b>
+            </div>
+        </div>
+        {{ end }}
+    </div>
+    <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">click here for some real fun </a>
+</div>
+<script src="public/JS/main.js"></script>
+</body>
+</html>

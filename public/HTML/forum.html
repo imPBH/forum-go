@@ -1,0 +1,109 @@
+{{ define "LoggedHeader" }}
+<div class="header">
+    <a href="/" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+    <div class="header-right">
+        <a class="active" href="/">Home</a>
+        <a href="/filter?by=liked">Liked Posts</a>
+        <a href="/filter?by=myposts">My Posts</a>
+        <a href="/newpost">New post</a>
+        <a href="/api/logout">Log out</a>
+    </div>
+</div>
+{{ end }}
+
+{{ define "DefaultHeader" }}
+<div class="header">
+    <a href="/" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+    <div class="header-right">
+        <a class="active" href="/">Home</a>
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+    </div>
+</div>
+{{ end }}
+
+{{ $postsByCategories := .PostsByCategories }}
+{{ $categories := .Categories }}
+{{ $icons := .Icons }}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kdam+Thmor+Pro&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forum</title>
+    <link rel="stylesheet" href="public/CSS/style.css">
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"/>
+    <link rel="icon" href="public/graphic.png">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital@1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css">
+</head>
+<body>
+<header>
+    {{ if .User.IsLoggedIn }}
+    {{ template "LoggedHeader" . }}
+    {{ else }}
+    {{ template "DefaultHeader" . }}
+    {{ end }}
+</header>
+<div id=" main-content">
+    <div id="container" class="container">
+        <div class="subforum" action="\post.html">
+            <div class="subforum-title">
+                <h1>HERE FREE SPEECH ALLOWED </h1>
+            </div>
+            <div class="subforum-row">
+                <div class="subforum-icon subforum-column center"><i class="fa fa-duotone fa-user-secret"></i></div>
+                <div class="subforum-description subforum-column">
+                    <p>Hello and welcome to our forum </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{ range $index, $category := $categories }}
+    <div class="subforum">
+        <div class="subforum-title">
+            <h1><a style="color: white; box-shadow: none" href="filter?by=category&category={{ $category }}">{{
+                $category }}</a></h1>
+        </div>
+        {{ range $indexPost, $value := index $postsByCategories $index }}
+        {{ if lt $indexPost 5}}
+        <div href="post.html" class="subforum-row">
+            <div class="subforum-icon subforum-column center">
+                <i class="fa {{ index $icons $index }}"></i>
+            </div>
+            <div class="subforum-description subforum-column">
+                <h4><a href="/post?id={{ .Id }}">{{ .Title }}</a></h4>
+                <p>{{ .UpVotes }} Upvotes | {{ .DownVotes }} Downvotes</p>
+            </div>
+            <div class="subforum-info subforum-column">
+                <b><a>Post</a></b> by <a>{{ .Username }}</a>
+                <br>on <small>{{ .CreatedAt }}</small>
+            </div>
+        </div>
+        <hr class="subforum-devider">
+        {{ end }}
+        {{ end }}
+    </div>
+    {{ end }}
+</div>
+<footer>
+    <div class="footer-container">
+        <div class="footer-row">
+            <div class="footer-column">
+                <h1>HAAPY FEET &copy</h1>
+                <p>
+                    thanks for using this forum and we hope you enjoy it.
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+<script src="public/JS/main.js"></script>
+</body>
+</html>

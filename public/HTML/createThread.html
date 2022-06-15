@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kdam+Thmor+Pro&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Title</title>
+<link rel="stylesheet" href="public/CSS/CreateThread.css">
+</head>
+<body>
+<header>
+    <div class="header">
+        <a href="/" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+        <div class="header-right">
+            <a class="active" href="/">Home</a>
+            <a href="/filter?by=liked">Liked Posts</a>
+            <a href="/filter?by=myposts">My Posts</a>
+            <a href="/newpost">New post</a>
+            <a href="/api/logout">Log out</a>
+        </div>
+    </div>
+</header>
+<form class="forminsane" action="/api/createpost" method="post">
+<div class="containerThread">
+    <h1> THREAD CREATION</h1>
+    <p>Please fill in the following fields to create a new thread</p>
+
+<label the title must be here ></label>
+        <input class="titleinput" type="text" name="title" placeholder="title">
+    <label> this is the content place </label>
+        <textarea class="contentInfo" type="text" name="content" placeholder="content"></textarea>
+<div class="containerThread">
+<div class="contentThread">
+    <label>Categories :</label>
+    <input type="checkbox" name="categories[]" value="General">
+    <label>General</label>
+    <input type="checkbox" name="categories[]" value="Technology">
+    <label>Technology</label>
+    <input type="checkbox" name="categories[]" value="Science">
+    <label>Science</label>
+    <input type="checkbox" name="categories[]" value="Sports">
+    <label>Sports</label>
+    <input type="checkbox" name="categories[]" value="Gaming">
+    <label>Gaming</label>
+    <input type="checkbox" name="categories[]" value="Music">
+    <label>Music</label>
+    <input type="checkbox" name="categories[]" value="Books">
+    <label>Books</label>
+    <input type="checkbox" name="categories[]" value="Movies">
+    <label>Movies</label>
+    <input type="checkbox" name="categories[]" value="TV">
+    <label>TV</label>
+    <input type="checkbox" name="categories[]" value="Food">
+    <label>Food</label>
+    <input type="checkbox" name="categories[]" value="Travel">
+    <label>Travel</label>
+    <input type="checkbox" name="categories[]" value="Photography">
+    <label>Photography</label>
+    <input type="checkbox" name="categories[]" value="Art">
+    <label>Art</label>
+    <input type="checkbox" name="categories[]" value="Writing">
+    <label>Writing</label>
+    <input type="checkbox" name="categories[]" value="Programming">
+    <label>Programming</label>
+    <input type="checkbox" name="categories[]" value="Other">
+    <label>Other</label>
+</div>
+</div>
+
+    <input class="button"type="submit" value="create">
+
+</div>
+</form>
+
+
+
+</body>
+</html>

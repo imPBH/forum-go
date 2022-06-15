@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kdam+Thmor+Pro&family=Varela+Round&display=swap"
+          rel="stylesheet">
+    <link rel="stylesheet" href="public/CSS/loginpage.css">
+</head>
+
+<body>
+
+
+<div class="container">
+    <div class="item-container">
+        <h2 class="log-in">REGISTER</h2>
+    </div>
+    {{ if ne .Message "" }}
+    <div class="item-container">
+        <p style="color: red">{{ .Message }}</p>
+    </div>
+    {{ end }}
+    <div class="item-container">
+        <p>register using email</p>
+    </div>
+    <form action="/api/register" method="post">
+        <div class="username">
+            <label class="label">Username</label><br>
+            <input type="text" name="username">
+        </div>
+        <div class="form-input">
+            <label class="label">Email</label>
+            <input type="text" name="email">
+        </div>
+        <div class="form-input">
+            <label class="label">Password</label>
+            <input type="password" name="password">
+        </div>
+
+        <div class="button">
+            <button type="submit">Register</button>
+        </div>
+    </form>
+</div>
+</body>

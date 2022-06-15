@@ -1,0 +1,117 @@
+{{ define "LoggedHeader" }}
+<div class="header">
+    <a href="/" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+    <div class="header-right">
+        <a class="active" href="/">Home</a>
+        <a href="/filter?by=liked">Liked Posts</a>
+        <a href="/filter?by=myposts">My Posts</a>
+        <a href="/newpost">New post</a>
+        <a href="/api/logout">Log out</a>
+    </div>
+</div>
+{{ end }}
+
+{{ define "DefaultHeader" }}
+<div class="header">
+    <a href="/" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+    <div class="header-right">
+        <a class="active" href="/">Home</a>
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+    </div>
+</div>
+{{ end }}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forum</title>
+    <link rel="stylesheet" href="public/CSS/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="public/CSS/detailcss.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital@1&display=swap" rel="stylesheet">
+</head>
+
+<body>
+<header>
+    {{ if .User.IsLoggedIn }}
+    {{ template "LoggedHeader" . }}
+    {{ else }}
+    {{ template "DefaultHeader" . }}
+    {{ end }}
+</header>
+<div class="containerdetail">
+    <!--Navigation-->
+    <div class="subforum-title">
+        <h1>{{ .Post.Title }}</h1>
+    </div>
+
+    <!--Topic Section-->
+    <div class="topic-container">
+        <!--Original thread-->
+
+    </div>
+    <div class="body">
+        <div class="authors">
+            <div class="username"><a>{{ .Post.Username }}</a></div>
+            <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="">
+        </div>
+        <br>
+        <div class="content">
+            <div class="post-content">
+                <p>{{ .Post.Content }}</p>
+            </div>
+            <br>
+            <hr>
+            <img class="thumbsup" src="https://img.icons8.com/material-outlined/24/undefined/thumb-up.png"
+                 style="margin: 0" onclick="upvote({{ .Post.Id }})"/>
+            <a style="margin-right: 10px">{{ .Post.UpVotes }}</a>
+            <img class="thumbsdown" src="https://img.icons8.com/material-outlined/24/undefined/thumb-up.png"
+                 style="margin: 0" onclick="downvote({{ .Post.Id }})"/>
+            <a>{{ .Post.DownVotes }}</a>
+            {{ if .User.IsLoggedIn }}
+            <div class="comment">
+                <button onclick="showComment()">Comment</button>
+                <div class="comment-box" id="comment-box">
+                </div>
+                {{ end }}
+                <br>
+                {{ .Post.CreatedAt }}
+            </div>
+        </div>
+    </div>
+    <!--Comment Area-->
+    <div class="comment-area hide" id="comment-area">
+        <form action="/api/comments" method="post">
+            <input name="postId" value="{{ .Post.Id }}" type="hidden">
+            <textarea name="content" id="commentTextArea" placeholder="Comment here ... "></textarea>
+            <input type="submit" value="submit">
+        </form>
+    </div>
+    <!--Comments Section-->
+    {{ range .Post.Comments }}
+    <div class="comments-container">
+        <div class="body">
+            <div class="authors">
+                <div class="username"><a>{{ .Username }}</a></div>
+                <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="">
+            </div>
+            <br>
+            <div class="content">
+                <div class="post-content">
+                    <p>{{ .Content }}</p>
+                </div>
+                <br>
+                <hr>
+                {{ .CreatedAt }}
+            </div>
+        </div>
+    </div>
+    {{ end }}
+</div>
+<script src="public/JS/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kdam+Thmor+Pro&family=Varela+Round&display=swap"
+          rel="stylesheet">
+    <link rel="stylesheet" href="public/CSS/loginpage.css">
+</head>
+
+<body>
+
+
+<div class="container">
+    <div class="item-container">
+        <h2 class="log-in">LOG IN</h2>
+    </div>
+    {{ if ne .Message "" }}
+    <div class="item-container">
+        <p style="color: red">{{ .Message }}</p>
+    </div>
+    {{ end }}
+    <div class="item-container">
+        <p>login using email</p>
+    </div>
+    <form action="/api/login" method="post">
+        <div class="form-input">
+            <label class="label">Email</label>
+            <input type="text" name="email">
+        </div>
+        <div class="form-input">
+            <label class="label">Password</label>
+            <input type="password" name="password">
+        </div>
+        <div class="button">
+            <button type="submit">Log in</button>
+        </div>
+    </form>
+</div>
+</body>
