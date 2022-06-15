@@ -45,11 +45,11 @@
 </head>
 <body>
 <header>
-        {{ if .User.IsLoggedIn }}
-        {{ template "LoggedHeader" . }}
-        {{ else }}
-        {{ template "DefaultHeader" . }}
-        {{ end }}
+    {{ if .User.IsLoggedIn }}
+    {{ template "LoggedHeader" . }}
+    {{ else }}
+    {{ template "DefaultHeader" . }}
+    {{ end }}
 </header>
 <div id=" main-content">
     <div id="container" class="container">
@@ -68,9 +68,11 @@
     {{ range $index, $category := $categories }}
     <div class="subforum">
         <div class="subforum-title">
-            <h1><a style="color: white; box-shadow: none" href="filter?by=category&category={{ $category }}">{{ $category }}</a></h1>
+            <h1><a style="color: white; box-shadow: none" href="filter?by=category&category={{ $category }}">{{
+                $category }}</a></h1>
         </div>
-        {{ range index $postsByCategories $index }}
+        {{ range $indexPost, $value := index $postsByCategories $index }}
+        {{ if lt $indexPost 5}}
         <div href="post.html" class="subforum-row">
             <div class="subforum-icon subforum-column center">
                 <i class="fa {{ index $icons $index }}"></i>
@@ -85,6 +87,7 @@
             </div>
         </div>
         <hr class="subforum-devider">
+        {{ end }}
         {{ end }}
     </div>
     {{ end }}
