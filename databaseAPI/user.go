@@ -5,6 +5,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type User struct {
+	isLoggedIn bool
+	username   string
+}
+
 // GetUser get user by cookie
 func GetUser(database *sql.DB, cookie string) string {
 	rows, _ := database.Query("SELECT username FROM users WHERE cookie = ?", cookie)

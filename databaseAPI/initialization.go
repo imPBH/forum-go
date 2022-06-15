@@ -31,7 +31,7 @@ func CreateVoteTable(database *sql.DB) {
 
 // CreateCategoriesTable create the categories' table into given database
 func CreateCategoriesTable(database *sql.DB) {
-	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY, name TEXT)")
+	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY, name TEXT, icon TEXT)")
 	statement.Exec()
 }
 
@@ -54,4 +54,25 @@ func CreateCategories(database *sql.DB) {
 	statement.Exec("Writing", "Writing")
 	statement.Exec("Programming", "Programming")
 	statement.Exec("Other", "Other")
+}
+
+// createCategoriesIcons creates categories' icons in the database
+func CreateCategoriesIcons(database *sql.DB) {
+	statement, _ := database.Prepare("UPDATE categories SET icon = ? WHERE name = ?")
+	statement.Exec("fa-globe", "General")
+	statement.Exec("fa-laptop", "Technology")
+	statement.Exec("fa-flask", "Science")
+	statement.Exec("fa-futbol-o", "Sports")
+	statement.Exec("fa-gamepad", "Gaming")
+	statement.Exec("fa-music", "Music")
+	statement.Exec("fa-book", "Books")
+	statement.Exec("fa-film", "Movies")
+	statement.Exec("fa-tv", "TV")
+	statement.Exec("fa-cutlery", "Food")
+	statement.Exec("fa-plane", "Travel")
+	statement.Exec("fa-camera", "Photography")
+	statement.Exec("fa-paint-brush", "Art")
+	statement.Exec("fa-pencil", "Writing")
+	statement.Exec("fa-code", "Programming")
+	statement.Exec("fa-question", "Other")
 }

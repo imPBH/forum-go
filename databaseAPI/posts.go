@@ -10,12 +10,12 @@ import (
 
 // GetPost by id returns a Post struct with the post data
 func GetPost(database *sql.DB, id string) Post {
-	rows, _ := database.Query("SELECT username, title, categories, content, created_at FROM posts WHERE id = ?", id)
+	rows, _ := database.Query("SELECT username, title, categories, content, created_at, upvotes, downvotes FROM posts WHERE id = ?", id)
 	var post Post
 	post.Id, _ = strconv.Atoi(id)
 	for rows.Next() {
 		catString := ""
-		rows.Scan(&post.Username, &post.Title, &catString, &post.Content, &post.CreatedAt)
+		rows.Scan(&post.Username, &post.Title, &catString, &post.Content, &post.CreatedAt, &post.UpVotes, &post.DownVotes)
 		categoriesArray := strings.Split(catString, ",")
 		post.Categories = categoriesArray
 	}
@@ -24,26 +24,14 @@ func GetPost(database *sql.DB, id string) Post {
 
 // GetComments get comments by post id
 func GetComments(database *sql.DB, id string) []Comment {
-	rows, _ := database.Query("SELECT id, username, content FROM comments WHERE post_id = ?", id)
+	rows, _ := database.Query("SELECT id, username, content, created_at FROM comments WHERE post_id = ?", id)
 	var comments []Comment
 	for rows.Next() {
 		var comment Comment
-		rows.Scan(&comment.Id, &comment.Username, &comment.Content)
+		rows.Scan(&comment.Id, &comment.Username, &comment.Content, &comment.CreatedAt)
 		comments = append(comments, comment)
 	}
 	return comments
-}
-
-// GetPosts get all posts
-func GetPosts(database *sql.DB) []Post {
-	rows, _ := database.Query("SELECT id, username, title, content, created_at FROM posts")
-	var posts []Post
-	for rows.Next() {
-		var post Post
-		rows.Scan(&post.Id, &post.Username, &post.Title, &post.Content, &post.CreatedAt)
-		posts = append(posts, post)
-	}
-	return posts
 }
 
 // GetPostsByCategory returns all posts in a given category
@@ -56,6 +44,16 @@ func GetPostsByCategory(database *sql.DB, category string) []Post {
 		rows.Scan(&post.Id, &post.Username, &post.Title, &catString, &post.Content, &post.CreatedAt, &post.UpVotes, &post.DownVotes)
 		post.Categories = strings.Split(catString, ",")
 		posts = append(posts, post)
+	}
+	return posts
+}
+
+// GetPostsByCategories returns all posts for all categories
+func GetPostsByCategories(database *sql.DB) [][]Post {
+	categories := GetCategories(database)
+	var posts [][]Post
+	for _, category := range categories {
+		posts = append(posts, GetPostsByCategory(database, category))
 	}
 	return posts
 }
@@ -98,6 +96,28 @@ func GetCategories(database *sql.DB) []string {
 		categories = append(categories, name)
 	}
 	return categories
+}
+
+// GetCategoriesIcons returns all categories' icons
+func GetCategoriesIcons(database *sql.DB) []string {
+	rows, _ := database.Query("SELECT icon FROM categories")
+	var icons []string
+	for rows.Next() {
+		var icon string
+		rows.Scan(&icon)
+		icons = append(icons, icon)
+	}
+	return icons
+}
+
+// GetCategoryIcon returns the icon for a category
+func GetCategoryIcon(database *sql.DB, category string) string {
+	rows, _ := database.Query("SELECT icon FROM categories WHERE name = ?", category)
+	var icon string
+	for rows.Next() {
+		rows.Scan(&icon)
+	}
+	return icon
 }
 
 // CreatePost
