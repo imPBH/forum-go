@@ -102,3 +102,5 @@ func inArray(input string, array []string) bool {
 	}
 	return false
 }
+
+// starting templating
