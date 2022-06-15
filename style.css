@@ -190,9 +190,8 @@ h1{
   }
 /*   Header Section    */
 
-header{
-    margin-inline: 10px;
-}
+
+
   /* Nav Bar styles */
 .navbar{
     display:flex;
