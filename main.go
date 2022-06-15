@@ -54,26 +54,27 @@ func main() {
 	databaseAPI.CreateVoteTable(database)
 	databaseAPI.CreateCategoriesTable(database)
 	databaseAPI.CreateCategories(database)
+	databaseAPI.CreateCategoriesIcons(database)
 
 	webAPI.SetDatabase(database)
 
-	fs := http.FileServer(http.Dir("templates"))
+	fs := http.FileServer(http.Dir("public"))
 	router := http.NewServeMux()
 	fmt.Println("Starting server on port 8000")
 
 	router.HandleFunc("/", webAPI.Index)
 	router.HandleFunc("/register", webAPI.Register)
 	router.HandleFunc("/login", webAPI.Login)
+	router.HandleFunc("/post", webAPI.DisplayPost)
+	router.HandleFunc("/filter", webAPI.GetPostsByApi)
+	router.HandleFunc("/newpost", webAPI.NewPost)
 	router.HandleFunc("/api/register", webAPI.RegisterApi)
 	router.HandleFunc("/api/login", webAPI.LoginApi)
+	router.HandleFunc("/api/logout", webAPI.LogoutAPI)
 	router.HandleFunc("/api/createpost", webAPI.CreatePostApi)
 	router.HandleFunc("/api/comments", webAPI.CommentsApi)
-	router.HandleFunc("/post", webAPI.DisplayPost)
-	router.HandleFunc("/posts", webAPI.GetPostsApi)
 	router.HandleFunc("/api/vote", webAPI.VoteApi)
-	router.HandleFunc("/filter", webAPI.GetPostsByApi)
-	router.HandleFunc("/api/logout", webAPI.LogoutAPI)
 
-	router.Handle("/templates/", http.StripPrefix("/templates/", fs))
+	router.Handle("/public/", http.StripPrefix("/public/", fs))
 	http.ListenAndServe(":8000", router)
 }
