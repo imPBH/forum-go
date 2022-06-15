@@ -6,23 +6,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Kdam+Thmor+Pro&display=swap" rel="stylesheet">
     <meta charset="UTF-8">
     <title>Title</title>
-<link rel="stylesheet" href="CreateThread.css">
+<link rel="stylesheet" href="public/CSS/CreateThread.css">
 </head>
 <body>
 <header>
-    <header>
-        <div class="header">
-
-            <a href="forums.html" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
-            <div class="header-right">
-                <a class="active" href="forums.html">Home</a>
-                <a href="favorite.html">favorite</a>
-                <a href="createThread.html">create post</a>
-                <a href="#login">Log out</a>
-
-            </div>
+    <div class="header">
+        <a href="/" class="logo"><i class=" fa fa-solid fa-user"></i>HAPPY FEET</a>
+        <div class="header-right">
+            <a class="active" href="/">Home</a>
+            <a href="/filter?by=liked">Liked Posts</a>
+            <a href="/filter?by=myposts">My Posts</a>
+            <a href="/newpost">New post</a>
+            <a href="/api/logout">Log out</a>
         </div>
-    </header>
+    </div>
 </header>
 <form class="forminsane" action="/api/createpost" method="post">
 <div class="containerThread">
@@ -36,38 +33,38 @@
 <div class="containerThread">
 <div class="contentThread">
     <label>Categories :</label>
-    <input type="checkbox" name="categories[]" value="1">
-    <label>Category 1</label>
-    <input type="checkbox" name="categories[]" value="2">
-    <label>Category 2</label>
-    <input type="checkbox" name="categories[]" value="3">
-    <label>Category 3</label>
-    <input type="checkbox" name="categories[]" value="4">
-    <label>Category 4</label>
-    <input type="checkbox" name="categories[]" value="5">
-    <label>Category 5</label>
-    <input type="checkbox" name="categories[]" value="6">
-    <label>Category 6</label>
-    <input type="checkbox" name="categories[]" value="7">
-    <label>Category 7</label>
-    <input type="checkbox" name="categories[]" value="8">
-    <label>Category 8</label>
-    <input type="checkbox" name="categories[]" value="9">
-    <label>Category 9</label>
-    <input type="checkbox" name="categories[]" value="10">
-    <label>Category 10</label>
-    <input type="checkbox" name="categories[]" value="11">
-    <label>Category 11</label>
-    <input type="checkbox" name="categories[]" value="12">
-    <label>Category 12</label>
-    <input type="checkbox" name="categories[]" value="13">
-    <label>Category 13</label>
-    <input type="checkbox" name="categories[]" value="14">
-    <label>Category 14</label>
-    <input type="checkbox" name="categories[]" value="15">
-    <label>Category 15</label>
-    <input type="checkbox" name="categories[]" value="16">
-    <label>Category 16</label>
+    <input type="checkbox" name="categories[]" value="General">
+    <label>General</label>
+    <input type="checkbox" name="categories[]" value="Technology">
+    <label>Technology</label>
+    <input type="checkbox" name="categories[]" value="Science">
+    <label>Science</label>
+    <input type="checkbox" name="categories[]" value="Sports">
+    <label>Sports</label>
+    <input type="checkbox" name="categories[]" value="Gaming">
+    <label>Gaming</label>
+    <input type="checkbox" name="categories[]" value="Music">
+    <label>Music</label>
+    <input type="checkbox" name="categories[]" value="Books">
+    <label>Books</label>
+    <input type="checkbox" name="categories[]" value="Movies">
+    <label>Movies</label>
+    <input type="checkbox" name="categories[]" value="TV">
+    <label>TV</label>
+    <input type="checkbox" name="categories[]" value="Food">
+    <label>Food</label>
+    <input type="checkbox" name="categories[]" value="Travel">
+    <label>Travel</label>
+    <input type="checkbox" name="categories[]" value="Photography">
+    <label>Photography</label>
+    <input type="checkbox" name="categories[]" value="Art">
+    <label>Art</label>
+    <input type="checkbox" name="categories[]" value="Writing">
+    <label>Writing</label>
+    <input type="checkbox" name="categories[]" value="Programming">
+    <label>Programming</label>
+    <input type="checkbox" name="categories[]" value="Other">
+    <label>Other</label>
 </div>
 </div>
 
