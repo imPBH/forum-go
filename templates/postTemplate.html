@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Post</title>
+</head>
+<body>
+
+<div>
+    <p>Author</p>
+    <p>{{.Username}}</p>
+</div>
+<div>
+    <h1>{{.Title}}</h1>
+    <p>{{.Content}}</p>
+</div>
+// upvote and downvote
+<div>
+    <form action="/api/vote" method="POST">
+        <input type="hidden" name="postId" value="{{.Id}}">
+        <input type="hidden" name="vote" value="1">
+        <button>Upvote</button>
+    </form>
+    <form action="/api/vote" method="POST">
+        <input type="hidden" name="postId" value="{{.Id}}">
+        <input type="hidden" name="vote" value="-1">
+        <button>Downvote</button>
+    </form>
+</div>
+
+// Show the comments
+<div>
+    <h2>Comments</h2>
+    <ul>
+        {{range .Comments}}
+        <li>
+            <p>{{.Content}}</p>
+            <p>{{.Username}}</p>
+        </li>
+        {{end}}
+    </ul>
+
+    // add a comment
+    <div>
+        <form action="/api/comments" method="POST">
+            <div>
+                <input name="postId" value="{{.Id}}" type="hidden">
+                <label>Content :</label>
+                <textarea name="content"></textarea>
+            </div>
+            <div>
+                <button>Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>
