@@ -43,6 +43,10 @@ the database. When a user is registering, we store is username and hashed passwo
 ## Docker
 We use Docker to run the application, we create a Dockerfile in the root directory of the repository.
 
+To create the Docker image, we run the following command:
+```bash
+docker build -t forum-go .
+```
 To run the application, we use the following command:
 ```bash
 docker run -p 8000:8000 -it forum-go
